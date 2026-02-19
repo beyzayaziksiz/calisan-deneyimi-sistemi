@@ -2,172 +2,707 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Sunar Yanımda 2.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sunar Yanımda 2.0 - MVP</title>
 <style>
-body { font-family: Arial; margin:20px; max-width:1100px; }
-h1 { margin-bottom:10px; }
-.tab { cursor:pointer; padding:10px 20px; border:1px solid #ccc; display:inline-block; margin-right:5px; }
-.active { background:#f0f0f0; }
-.section { margin-top:20px; }
-.card { border:1px solid #ddd; padding:15px; margin-top:15px; border-radius:8px; }
-input, select, button { padding:8px; margin-right:5px; margin-top:5px; }
-table { width:100%; border-collapse:collapse; margin-top:10px; }
-th, td { border-bottom:1px solid #ddd; padding:8px; text-align:left; }
-.badge { padding:4px 8px; border-radius:12px; font-size:12px; }
-.green { background:#d4edda; }
-.red { background:#f8d7da; }
+  body { font-family: Arial, sans-serif; margin: 20px; max-width: 1150px; }
+  h1 { margin: 0 0 8px; }
+  .muted { color:#666; margin: 0 0 16px; }
+  .tabs { margin: 8px 0 14px; }
+  .tab { cursor:pointer; padding:10px 16px; border:1px solid #ccc; display:inline-block; margin-right:6px; border-radius:10px; user-select:none; }
+  .active { background:#f3f3f3; }
+  .section { margin-top: 14px; }
+  .card { border:1px solid #ddd; padding:14px; border-radius:12px; margin: 12px 0; }
+  .row { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
+  input, select, button, textarea { padding:9px; font-size:14px; }
+  input, select { min-width: 220px; }
+  textarea { min-width: 320px; min-height: 80px; }
+  button { cursor:pointer; }
+  table { width:100%; border-collapse: collapse; margin-top:10px; }
+  th, td { border-bottom:1px solid #eee; padding:10px; text-align:left; }
+  th { background:#fafafa; }
+  .badge { padding:4px 10px; border-radius:999px; font-size:12px; border:1px solid #ddd; display:inline-block; }
+  .green { background:#d4edda; }
+  .red { background:#f8d7da; }
+  .danger { color:#b00020; }
+  .small { font-size:12px; color:#666; }
+  .right { text-align:right; }
 </style>
 </head>
 <body>
 
-<h1>Sunar Yanımda 2.0</h1>
+<h1>Sunar Yanımda 2.0 (MVP Demo)</h1>
+<p class="muted">Demo ortamı: Veriler tarayıcıda saklanır (localStorage). Lütfen gerçek çalışan verisi girmeyin.</p>
 
-<div>
-<span class="tab active" onclick="showTab('emp')">Çalışanlar</span>
-<span class="tab" onclick="showTab('norm')">Norm Kadro</span>
+<div class="tabs">
+  <span class="tab active" onclick="showTab('emp', event)">Çalışanlar</span>
+  <span class="tab" onclick="showTab('norm', event)">Norm Kadro</span>
+  <span class="tab" onclick="showTab('career', event)">Kariyer Hareketi</span>
+  <span class="tab" onclick="showTab('audit', event)">Audit Log</span>
 </div>
 
+<!-- ÇALIŞANLAR -->
 <div id="emp" class="section">
 
-<div class="card">
-<h3>Çalışan Ekle</h3>
-<input id="name" placeholder="Ad Soyad">
-<input id="sicil" placeholder="Sicil No">
-<select id="dept">
-<option>İnsan & Kültür</option>
-<option>Finans</option>
-<option>Operasyon</option>
-<option>Satış</option>
-</select>
-<input id="position" placeholder="Pozisyon">
-<button onclick="addEmployee()">Ekle</button>
+  <div class="card">
+    <h3>Çalışan Ekle</h3>
+    <div class="row">
+      <input id="empName" placeholder="Ad Soyad (zorunlu)">
+      <input id="empSicil" placeholder="Sicil No (zorunlu)">
+      <select id="empDept">
+        <option value="">Departman (seç)</option>
+        <option>İnsan & Kültür</option>
+        <option>Finans</option>
+        <option>Operasyon</option>
+        <option>Satış</option>
+        <option>Kalite</option>
+        <option>IT</option>
+      </select>
+      <input id="empPosition" placeholder="Pozisyon (zorunlu)">
+      <input id="empHireDate" type="date" placeholder="İşe Başlama Tarihi">
+      <button onclick="addEmployee()">Ekle</button>
+    </div>
+    <p id="empErr" class="danger"></p>
+    <p class="small">Kural: Ad Soyad, Sicil No ve Pozisyon zorunlu. Departman seçmezsen “—” olur.</p>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;">
+      <h3 style="margin:0;">Çalışan Listesi</h3>
+      <div class="row">
+        <input id="empSearch" placeholder="Ara: ad / sicil / dept / pozisyon" oninput="renderAll()">
+        <button onclick="exportJSON()">JSON Dışa Aktar</button>
+        <button onclick="resetDemo()" class="danger">Demo Verisini Sıfırla</button>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Ad Soyad</th>
+          <th>Sicil</th>
+          <th>Departman</th>
+          <th>Pozisyon</th>
+          <th>Durum</th>
+          <th class="right">İşlem</th>
+        </tr>
+      </thead>
+      <tbody id="empTable"></tbody>
+    </table>
+
+    <p class="small">İpucu: “Hareket” butonu ile Kariyer Hareketi sekmesine otomatik geçebilirsin.</p>
+  </div>
+
+  <div class="card">
+    <h3>Seçili Çalışan - Görev Geçmişi</h3>
+    <p class="small">Kariyer hareketleri burada kronolojik tutulur. (Silme yok, kayıt bazlı geçmiş)</p>
+    <div id="selectedInfo" class="small">Henüz bir çalışan seçilmedi.</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Efektif Tarih</th>
+          <th>Hareket Tipi</th>
+          <th>Eski</th>
+          <th>Yeni</th>
+          <th>Gerekçe</th>
+        </tr>
+      </thead>
+      <tbody id="historyTable"></tbody>
+    </table>
+  </div>
+
 </div>
 
-<div class="card">
-<h3>Çalışan Listesi</h3>
-<table>
-<thead>
-<tr>
-<th>Ad Soyad</th>
-<th>Sicil</th>
-<th>Departman</th>
-<th>Pozisyon</th>
-<th>Durum</th>
-</tr>
-</thead>
-<tbody id="empTable"></tbody>
-</table>
-</div>
-
-</div>
-
+<!-- NORM KADRO -->
 <div id="norm" class="section" style="display:none;">
 
-<div class="card">
-<h3>Norm Kadro Ekle</h3>
-<select id="normDept">
-<option>İnsan & Kültür</option>
-<option>Finans</option>
-<option>Operasyon</option>
-<option>Satış</option>
-</select>
-<input id="normPosition" placeholder="Pozisyon">
-<input id="normPlan" type="number" placeholder="Planlanan Adet">
-<button onclick="addNorm()">Ekle</button>
+  <div class="card">
+    <h3>Norm Kadro Satırı Ekle</h3>
+    <div class="row">
+      <input id="normCompany" placeholder="Şirket (örn. Sunar Yatırım)">
+      <select id="normDept">
+        <option value="">Departman (seç)</option>
+        <option>İnsan & Kültür</option>
+        <option>Finans</option>
+        <option>Operasyon</option>
+        <option>Satış</option>
+        <option>Kalite</option>
+        <option>IT</option>
+      </select>
+      <input id="normPosition" placeholder="Pozisyon (örn. Uzman)">
+      <input id="normPlan" type="number" min="0" placeholder="Planlanan Adet">
+      <button onclick="addNorm()">Ekle</button>
+    </div>
+    <p id="normErr" class="danger"></p>
+    <p class="small">Plan vs Fiili otomatik hesaplanır: Dolu = Çalışanlar listesinden departman+pozisyon eşleşmesi.</p>
+  </div>
+
+  <div class="card">
+    <h3>Plan vs Fiili</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Şirket</th>
+          <th>Departman</th>
+          <th>Pozisyon</th>
+          <th>Plan</th>
+          <th>Dolu</th>
+          <th>Açık</th>
+          <th class="right">İşlem</th>
+        </tr>
+      </thead>
+      <tbody id="normTable"></tbody>
+    </table>
+  </div>
+
 </div>
 
-<div class="card">
-<h3>Plan vs Fiili</h3>
-<table>
-<thead>
-<tr>
-<th>Departman</th>
-<th>Pozisyon</th>
-<th>Plan</th>
-<th>Dolu</th>
-<th>Açık</th>
-</tr>
-</thead>
-<tbody id="normTable"></tbody>
-</table>
+<!-- KARIYER HAREKETİ -->
+<div id="career" class="section" style="display:none;">
+
+  <div class="card">
+    <h3>Kariyer Hareketi Başlat</h3>
+    <p class="small">Terfi / Transfer / Unvan Güncelleme gibi hareketler burada yapılır. İşlem sonrası görev geçmişi kayıt altına alınır ve norm kadro otomatik güncellenir.</p>
+
+    <div class="row">
+      <select id="carEmpSelect"></select>
+
+      <select id="carType">
+        <option value="Terfi">Terfi</option>
+        <option value="Transfer">Transfer</option>
+        <option value="Unvan Güncelleme">Unvan Güncelleme</option>
+        <option value="Rotasyon">Rotasyon</option>
+      </select>
+
+      <select id="carNewDept">
+        <option value="">Yeni Departman (seç)</option>
+        <option>İnsan & Kültür</option>
+        <option>Finans</option>
+        <option>Operasyon</option>
+        <option>Satış</option>
+        <option>Kalite</option>
+        <option>IT</option>
+      </select>
+
+      <input id="carNewPosition" placeholder="Yeni Pozisyon (zorunlu)">
+      <input id="carEffDate" type="date">
+    </div>
+
+    <div class="row">
+      <textarea id="carReason" placeholder="Gerekçe / Açıklama (opsiyonel)"></textarea>
+      <button onclick="applyCareerMove()">Hareketi Uygula</button>
+    </div>
+
+    <p id="carErr" class="danger"></p>
+    <p class="small">
+      Kural: Yeni Pozisyon zorunlu. Yeni Departman boş bırakılırsa mevcut departman korunur.
+      Efektif tarih boşsa bugün alınır.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Hızlı Kontrol</h3>
+    <ul class="small">
+      <li>Hareket sonrası Çalışanlar sekmesinde departman/pozisyon güncellenecek.</li>
+      <li>Norm Kadro sekmesinde ilgili satırların Dolu/Açık değerleri otomatik değişecek.</li>
+      <li>Görev geçmişinde “Eski → Yeni” kaydı görünecek.</li>
+      <li>Audit Log sekmesine kayıt düşecek.</li>
+    </ul>
+  </div>
+
 </div>
 
+<!-- AUDIT -->
+<div id="audit" class="section" style="display:none;">
+  <div class="card">
+    <h3>Audit Log (Son 50 kayıt)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Zaman</th>
+          <th>İşlem</th>
+          <th>Detay</th>
+        </tr>
+      </thead>
+      <tbody id="auditTable"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
+/** ---------------------------
+ *  Storage
+ * --------------------------*/
+const EMP_KEY = "cds_emp_v2";
+const NORM_KEY = "cds_norm_v2";
+const AUDIT_KEY = "cds_audit_v2";
+const UI_KEY = "cds_ui_v2";
 
-let employees = JSON.parse(localStorage.getItem("emp")) || [];
-let norms = JSON.parse(localStorage.getItem("norm")) || [];
+let employees = load(EMP_KEY, []);
+let norms = load(NORM_KEY, []);
+let audit = load(AUDIT_KEY, []);
+let selectedEmployeeId = load(UI_KEY, { selectedEmployeeId: null }).selectedEmployeeId || null;
 
-function save() {
-localStorage.setItem("emp", JSON.stringify(employees));
-localStorage.setItem("norm", JSON.stringify(norms));
+function load(key, fallback){
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
 }
 
-function showTab(tab) {
-document.getElementById("emp").style.display = tab==="emp"?"block":"none";
-document.getElementById("norm").style.display = tab==="norm"?"block":"none";
-
-let tabs = document.querySelectorAll(".tab");
-tabs.forEach(t=>t.classList.remove("active"));
-event.target.classList.add("active");
+function saveAll(){
+  localStorage.setItem(EMP_KEY, JSON.stringify(employees));
+  localStorage.setItem(NORM_KEY, JSON.stringify(norms));
+  localStorage.setItem(AUDIT_KEY, JSON.stringify(audit));
+  localStorage.setItem(UI_KEY, JSON.stringify({ selectedEmployeeId }));
 }
 
-function addEmployee() {
-let emp = {
-name: document.getElementById("name").value,
-sicil: document.getElementById("sicil").value,
-dept: document.getElementById("dept").value,
-position: document.getElementById("position").value,
-status: "Aktif"
-};
-employees.push(emp);
-save();
-render();
+function nowISO(){ return new Date().toISOString(); }
+
+function writeAudit(action, detail){
+  audit.unshift({ time: nowISO(), action, detail });
+  audit = audit.slice(0, 200);
+  saveAll();
 }
 
-function addNorm() {
-let norm = {
-dept: document.getElementById("normDept").value,
-position: document.getElementById("normPosition").value,
-plan: parseInt(document.getElementById("normPlan").value)
-};
-norms.push(norm);
-save();
-render();
+function id(prefix){
+  return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`;
 }
 
-function render() {
-let empTable = document.getElementById("empTable");
-empTable.innerHTML="";
-employees.forEach(e=>{
-empTable.innerHTML += `<tr>
-<td>${e.name}</td>
-<td>${e.sicil}</td>
-<td>${e.dept}</td>
-<td>${e.position}</td>
-<td><span class="badge green">${e.status}</span></td>
-</tr>`;
-});
-
-let normTable = document.getElementById("normTable");
-normTable.innerHTML="";
-norms.forEach(n=>{
-let dolu = employees.filter(e=>e.dept===n.dept && e.position===n.position).length;
-let acik = n.plan - dolu;
-
-normTable.innerHTML += `<tr>
-<td>${n.dept}</td>
-<td>${n.position}</td>
-<td>${n.plan}</td>
-<td>${dolu}</td>
-<td><span class="badge ${acik>0?'red':'green'}">${acik}</span></td>
-</tr>`;
-});
+function esc(str){
+  return String(str ?? "").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
 }
 
-render();
+/** ---------------------------
+ *  Tabs
+ * --------------------------*/
+function showTab(tab, ev){
+  document.getElementById("emp").style.display = tab==="emp" ? "block" : "none";
+  document.getElementById("norm").style.display = tab==="norm" ? "block" : "none";
+  document.getElementById("career").style.display = tab==="career" ? "block" : "none";
+  document.getElementById("audit").style.display = tab==="audit" ? "block" : "none";
 
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  if (ev && ev.target) ev.target.classList.add("active");
+
+  renderAll();
+}
+
+/** ---------------------------
+ *  Employees
+ * --------------------------*/
+function setErr(id, msg){ document.getElementById(id).textContent = msg || ""; }
+
+function addEmployee(){
+  setErr("empErr","");
+  const name = document.getElementById("empName").value.trim();
+  const sicil = document.getElementById("empSicil").value.trim();
+  const dept = document.getElementById("empDept").value || "—";
+  const position = document.getElementById("empPosition").value.trim();
+  const hireDate = document.getElementById("empHireDate").value || "";
+
+  if (!name || !sicil || !position){
+    setErr("empErr","Hata: Ad Soyad, Sicil No ve Pozisyon zorunludur.");
+    return;
+  }
+
+  // Sicil benzersiz olsun (MVP kuralı)
+  if (employees.some(e => e.sicil === sicil)){
+    setErr("empErr","Hata: Bu Sicil No zaten mevcut. Sicil No benzersiz olmalı.");
+    return;
+  }
+
+  const emp = {
+    employeeId: id("EMP"),
+    name, sicil,
+    dept, position,
+    hireDate,
+    status: "Aktif",
+    createdAt: nowISO(),
+    history: [] // assignment history
+  };
+
+  employees.unshift(emp);
+  selectedEmployeeId = emp.employeeId;
+
+  writeAudit("Çalışan Eklendi", `${emp.name} / ${emp.sicil} / ${emp.dept} / ${emp.position}`);
+  saveAll();
+
+  document.getElementById("empName").value = "";
+  document.getElementById("empSicil").value = "";
+  document.getElementById("empDept").value = "";
+  document.getElementById("empPosition").value = "";
+  document.getElementById("empHireDate").value = "";
+
+  renderAll();
+}
+
+function deactivateEmployee(empId){
+  const emp = employees.find(e => e.employeeId === empId);
+  if (!emp) return;
+  if (emp.status === "Pasif") return;
+
+  emp.status = "Pasif";
+  emp.deactivatedAt = nowISO();
+
+  writeAudit("Çalışan Pasife Alındı", `${emp.name} / ${emp.sicil}`);
+  saveAll();
+  renderAll();
+}
+
+function pickEmployee(empId){
+  selectedEmployeeId = empId;
+  saveAll();
+  renderAll();
+  // Kariyer sekmesini de hazırlamak için:
+  document.getElementById("carEmpSelect").value = empId;
+}
+
+/** ---------------------------
+ *  Norm Kadro
+ * --------------------------*/
+function addNorm(){
+  setErr("normErr","");
+  const company = (document.getElementById("normCompany").value || "—").trim() || "—";
+  const dept = document.getElementById("normDept").value || "—";
+  const position = document.getElementById("normPosition").value.trim();
+  const planRaw = document.getElementById("normPlan").value;
+  const plan = planRaw === "" ? NaN : parseInt(planRaw, 10);
+
+  if (!position || Number.isNaN(plan) || plan < 0){
+    setErr("normErr","Hata: Pozisyon ve Planlanan Adet zorunlu (0 veya üstü).");
+    return;
+  }
+
+  const norm = { normId: id("NORM"), company, dept, position, plan, createdAt: nowISO() };
+  norms.unshift(norm);
+
+  writeAudit("Norm Kadro Satırı Eklendi", `${company} / ${dept} / ${position} / Plan:${plan}`);
+  saveAll();
+
+  document.getElementById("normCompany").value = "";
+  document.getElementById("normDept").value = "";
+  document.getElementById("normPosition").value = "";
+  document.getElementById("normPlan").value = "";
+
+  renderAll();
+}
+
+function removeNorm(normId){
+  const idx = norms.findIndex(n => n.normId === normId);
+  if (idx === -1) return;
+
+  const n = norms[idx];
+  norms.splice(idx, 1);
+
+  writeAudit("Norm Kadro Satırı Silindi (MVP)", `${n.company} / ${n.dept} / ${n.position}`);
+  saveAll();
+  renderAll();
+}
+
+function countFilled(dept, position){
+  return employees.filter(e =>
+    e.status === "Aktif" &&
+    (dept === "—" || e.dept === dept) &&
+    e.position === position
+  ).length;
+}
+
+/** ---------------------------
+ *  Career Move
+ * --------------------------*/
+function initCareerDefaults(){
+  // effective date default: today
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  document.getElementById("carEffDate").value = `${yyyy}-${mm}-${dd}`;
+}
+
+function applyCareerMove(){
+  setErr("carErr","");
+  const empId = document.getElementById("carEmpSelect").value;
+  const type = document.getElementById("carType").value;
+  const newDept = document.getElementById("carNewDept").value; // optional
+  const newPos = document.getElementById("carNewPosition").value.trim();
+  const effDate = document.getElementById("carEffDate").value || "";
+  const reason = document.getElementById("carReason").value.trim();
+
+  if (!empId){
+    setErr("carErr","Hata: Çalışan seçmelisin.");
+    return;
+  }
+  if (!newPos){
+    setErr("carErr","Hata: Yeni Pozisyon zorunludur.");
+    return;
+  }
+
+  const emp = employees.find(e => e.employeeId === empId);
+  if (!emp){
+    setErr("carErr","Hata: Seçilen çalışan bulunamadı.");
+    return;
+  }
+  if (emp.status !== "Aktif"){
+    setErr("carErr","Hata: Pasif çalışana kariyer hareketi uygulanamaz (MVP kuralı).");
+    return;
+  }
+
+  const fromDept = emp.dept;
+  const fromPos = emp.position;
+  const toDept = newDept ? newDept : emp.dept;
+  const toPos = newPos;
+
+  // Eğer hiçbir şey değişmiyorsa
+  if (fromDept === toDept && fromPos === toPos){
+    setErr("carErr","Hata: Eski ve yeni aynı görünüyor. Değişiklik yapmalısın.");
+    return;
+  }
+
+  // history record (silme yok)
+  const move = {
+    moveId: id("MOVE"),
+    type,
+    effectiveDate: effDate || "",
+    fromDept, fromPos,
+    toDept, toPos,
+    reason,
+    createdAt: nowISO()
+  };
+
+  emp.history = emp.history || [];
+  emp.history.unshift(move);
+
+  // update current assignment
+  emp.dept = toDept;
+  emp.position = toPos;
+  emp.updatedAt = nowISO();
+
+  selectedEmployeeId = emp.employeeId;
+
+  writeAudit("Kariyer Hareketi Uygulandı", `${emp.name} (${emp.sicil}) | ${type} | ${fromDept}/${fromPos} → ${toDept}/${toPos} | ${effDate || "tarih yok"}`);
+  saveAll();
+
+  // reset fields
+  document.getElementById("carNewDept").value = "";
+  document.getElementById("carNewPosition").value = "";
+  document.getElementById("carReason").value = "";
+
+  renderAll();
+}
+
+/** ---------------------------
+ *  Export / Reset
+ * --------------------------*/
+function exportJSON(){
+  const payload = { exportedAt: nowISO(), employees, norms, audit };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cds-demo-export.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+  writeAudit("Dışa Aktarım", "JSON export alındı");
+  saveAll();
+  renderAudit();
+}
+
+function resetDemo(){
+  const ok = confirm("Demo verileri sıfırlansın mı? (Geri alınamaz)");
+  if (!ok) return;
+
+  employees = [];
+  norms = [];
+  audit = [];
+  selectedEmployeeId = null;
+
+  saveAll();
+  renderAll();
+}
+
+/** ---------------------------
+ *  Rendering
+ * --------------------------*/
+function renderEmployees(){
+  const q = (document.getElementById("empSearch").value || "").trim().toLowerCase();
+  const tbody = document.getElementById("empTable");
+  tbody.innerHTML = "";
+
+  const filtered = employees.filter(e => {
+    const hay = `${e.name} ${e.sicil} ${e.dept} ${e.position} ${e.status}`.toLowerCase();
+    return hay.includes(q);
+  });
+
+  if (filtered.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" class="small">Kayıt bulunamadı.</td></tr>`;
+    return;
+  }
+
+  for (const e of filtered){
+    const statusBadge = e.status === "Aktif"
+      ? `<span class="badge green">Aktif</span>`
+      : `<span class="badge red">Pasif</span>`;
+
+    const isSelected = (e.employeeId === selectedEmployeeId);
+    const selectBtn = `<button onclick="pickEmployee('${e.employeeId}')">${isSelected ? "Seçili" : "Seç"}</button>`;
+    const moveBtn = `<button onclick="goCareer('${e.employeeId}')">Hareket</button>`;
+    const passBtn = e.status === "Aktif" ? `<button onclick="deactivateEmployee('${e.employeeId}')">Pasife Al</button>` : `<span class="small">—</span>`;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(e.name)}</td>
+      <td>${esc(e.sicil)}</td>
+      <td>${esc(e.dept)}</td>
+      <td>${esc(e.position)}</td>
+      <td>${statusBadge}</td>
+      <td class="right">${selectBtn} ${moveBtn} ${passBtn}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderHistory(){
+  const info = document.getElementById("selectedInfo");
+  const tbody = document.getElementById("historyTable");
+  tbody.innerHTML = "";
+
+  const emp = employees.find(e => e.employeeId === selectedEmployeeId);
+
+  if (!emp){
+    info.textContent = "Henüz bir çalışan seçilmedi.";
+    tbody.innerHTML = `<tr><td colspan="5" class="small">Görev geçmişi için çalışan seçmelisin.</td></tr>`;
+    return;
+  }
+
+  info.innerHTML = `<b>${esc(emp.name)}</b> (Sicil: ${esc(emp.sicil)}) — Güncel: ${esc(emp.dept)} / ${esc(emp.position)}`;
+
+  const history = emp.history || [];
+  if (history.length === 0){
+    tbody.innerHTML = `<tr><td colspan="5" class="small">Bu çalışan için henüz kariyer hareketi yok.</td></tr>`;
+    return;
+  }
+
+  for (const h of history){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(h.effectiveDate || "")}</td>
+      <td>${esc(h.type)}</td>
+      <td>${esc(h.fromDept)} / ${esc(h.fromPos)}</td>
+      <td>${esc(h.toDept)} / ${esc(h.toPos)}</td>
+      <td>${esc(h.reason || "")}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderNorm(){
+  const tbody = document.getElementById("normTable");
+  tbody.innerHTML = "";
+
+  if (norms.length === 0){
+    tbody.innerHTML = `<tr><td colspan="7" class="small">Henüz norm kadro satırı yok.</td></tr>`;
+    return;
+  }
+
+  for (const n of norms){
+    const filled = countFilled(n.dept, n.position);
+    const open = n.plan - filled;
+    const openBadge = open > 0 ? `<span class="badge red">${open}</span>` : `<span class="badge green">${open}</span>`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(n.company)}</td>
+      <td>${esc(n.dept)}</td>
+      <td>${esc(n.position)}</td>
+      <td>${esc(n.plan)}</td>
+      <td>${esc(filled)}</td>
+      <td>${openBadge}</td>
+      <td class="right"><button onclick="removeNorm('${n.normId}')">Kaldır</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderCareerSelect(){
+  const sel = document.getElementById("carEmpSelect");
+  sel.innerHTML = "";
+
+  if (employees.length === 0){
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "Çalışan yok";
+    sel.appendChild(opt);
+    return;
+  }
+
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Çalışan seç (zorunlu)";
+  sel.appendChild(opt0);
+
+  for (const e of employees){
+    const opt = document.createElement("option");
+    opt.value = e.employeeId;
+    opt.textContent = `${e.name} (Sicil: ${e.sicil}) — ${e.dept}/${e.position} — ${e.status}`;
+    sel.appendChild(opt);
+  }
+
+  if (selectedEmployeeId){
+    sel.value = selectedEmployeeId;
+  }
+}
+
+function renderAudit(){
+  const tbody = document.getElementById("auditTable");
+  tbody.innerHTML = "";
+
+  if (!audit.length){
+    tbody.innerHTML = `<tr><td colspan="3" class="small">Henüz audit kaydı yok.</td></tr>`;
+    return;
+  }
+
+  for (const a of audit.slice(0, 50)){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(a.time)}</td>
+      <td>${esc(a.action)}</td>
+      <td>${esc(a.detail)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderAll(){
+  renderEmployees();
+  renderHistory();
+  renderNorm();
+  renderCareerSelect();
+  renderAudit();
+  saveAll();
+}
+
+function goCareer(empId){
+  selectedEmployeeId = empId;
+  saveAll();
+  // Tab switch programmatically
+  document.getElementById("emp").style.display = "none";
+  document.getElementById("norm").style.display = "none";
+  document.getElementById("career").style.display = "block";
+  document.getElementById("audit").style.display = "none";
+
+  const tabs = document.querySelectorAll(".tab");
+  tabs.forEach(t => t.classList.remove("active"));
+  tabs[2].classList.add("active"); // Kariyer tab
+
+  renderAll();
+  initCareerDefaults();
+}
+
+initCareerDefaults();
+renderAll();
 </script>
 
 </body>
