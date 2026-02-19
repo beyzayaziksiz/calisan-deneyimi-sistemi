@@ -1,0 +1,32 @@
+index.html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Çalışan Deneyimi Sistemi</title>
+</head>
+<body>
+    <h1>Sunar Yanımda 2.0</h1>
+
+    <h2>Çalışan Ekle</h2>
+
+    <input type="text" id="name" placeholder="Ad Soyad">
+    <input type="text" id="position" placeholder="Pozisyon">
+    <button onclick="addEmployee()">Ekle</button>
+
+    <h3>Çalışan Listesi</h3>
+    <ul id="employeeList"></ul>
+
+<script>
+function addEmployee() {
+    var name = document.getElementById("name").value;
+    var position = document.getElementById("position").value;
+
+    var li = document.createElement("li");
+    li.textContent = name + " - " + position;
+
+    document.getElementById("employeeList").appendChild(li);
+}
+</script>
+
+</body>
+</html>
