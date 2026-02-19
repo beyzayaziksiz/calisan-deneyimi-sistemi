@@ -27,6 +27,7 @@
   .danger { color:#b00020; }
   .small { font-size:12px; color:#666; }
   .right { text-align:right; }
+  .pill { border:1px solid #ddd; padding:6px 10px; border-radius:999px; display:inline-block; font-size:12px; }
 </style>
 </head>
 <body>
@@ -39,6 +40,7 @@
   <span class="tab" onclick="showTab('norm', event)">Norm Kadro</span>
   <span class="tab" onclick="showTab('career', event)">Kariyer Hareketi</span>
   <span class="tab" onclick="showTab('org', event)">Organizasyon</span>
+  <span class="tab" onclick="showTab('admin', event)">Admin Ayarları</span>
   <span class="tab" onclick="showTab('audit', event)">Audit Log</span>
 </div>
 
@@ -67,8 +69,11 @@
     <p id="empErr" class="danger"></p>
     <p class="small">
       Zorunlu: Ad Soyad, Sicil No, Pozisyon. Yönetici seçmezsen “Yok” olur.
-      Norm kadro kural motoru: ilgili norm satırı varsa ve plan doluysa uyarı verir.
+      Norm kadro kural motoru: Admin Ayarları’na göre “Uyar” veya “Blokla”.
     </p>
+    <div class="row">
+      <span class="pill" id="rulePill"></span>
+    </div>
   </div>
 
   <div class="card">
@@ -169,13 +174,13 @@
     <h3>Kariyer Hareketi Başlat</h3>
     <p class="small">
       Terfi / Transfer / Unvan Güncelleme gibi hareketler burada yapılır.
-      Kural motoru: norm satırı yoksa veya plan aşılıyorsa uyarı verir.
+      Kural motoru: norm satırı yoksa veya plan aşılıyorsa Admin Ayarları’na göre “Uyar” veya “Blokla”.
     </p>
 
     <div class="row">
       <select id="carEmpSelect" onchange="onCareerEmployeeChange()"></select>
 
-      <select id="carType" onchange="onCareerTypeChange()">
+      <select id="carType">
         <option value="Terfi">Terfi</option>
         <option value="Transfer">Transfer</option>
         <option value="Unvan Güncelleme">Unvan Güncelleme</option>
@@ -202,8 +207,11 @@
     </div>
 
     <p id="carErr" class="danger"></p>
+    <div class="row">
+      <span class="pill" id="rulePill2"></span>
+    </div>
     <p class="small">
-      Kurallar: Yeni Pozisyon zorunlu. Transfer tipinde Yeni Departman zorunludur (MVP kuralı).
+      Kurallar: Yeni Pozisyon zorunlu. Transfer tipinde Yeni Departman zorunlu (MVP).
       Efektif tarih boşsa bugün alınır.
     </p>
   </div>
@@ -238,6 +246,49 @@
 
 </div>
 
+<!-- ADMIN AYARLARI -->
+<div id="admin" class="section" style="display:none;">
+  <div class="card">
+    <h3>Admin Ayarları (Kural Motoru)</h3>
+    <p class="small">
+      Bu ayarlar “pilot vs canlı” senaryosu için: Pilot’ta “Uyar”, canlıda “Blokla” seçebilirsin.
+    </p>
+
+    <div class="row">
+      <label>
+        Genel Kural Modu:
+        <select id="ruleMode" onchange="saveRulesFromUI()">
+          <option value="WARN">Uyar</option>
+          <option value="BLOCK">Blokla</option>
+        </select>
+      </label>
+
+      <label>
+        Norm Satırı Yoksa:
+        <select id="ruleNoNorm" onchange="saveRulesFromUI()">
+          <option value="INHERIT">Genel Modu Kullan</option>
+          <option value="WARN">Uyar</option>
+          <option value="BLOCK">Blokla</option>
+        </select>
+      </label>
+
+      <label>
+        Plan Doluysa:
+        <select id="rulePlanFull" onchange="saveRulesFromUI()">
+          <option value="INHERIT">Genel Modu Kullan</option>
+          <option value="WARN">Uyar</option>
+          <option value="BLOCK">Blokla</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h4>Şu an aktif davranış</h4>
+      <p class="small" id="ruleSummary"></p>
+    </div>
+  </div>
+</div>
+
 <!-- AUDIT -->
 <div id="audit" class="section" style="display:none;">
   <div class="card">
@@ -259,16 +310,24 @@
 /** ---------------------------
  *  Storage
  * --------------------------*/
-const EMP_KEY = "cds_emp_v3";
-const NORM_KEY = "cds_norm_v3";
-const AUDIT_KEY = "cds_audit_v3";
-const UI_KEY = "cds_ui_v3";
+const EMP_KEY = "cds_emp_v4";
+const NORM_KEY = "cds_norm_v4";
+const AUDIT_KEY = "cds_audit_v4";
+const UI_KEY = "cds_ui_v4";
+const RULE_KEY = "cds_rules_v1";
 
 let employees = load(EMP_KEY, []);
 let norms = load(NORM_KEY, []);
 let audit = load(AUDIT_KEY, []);
-let selectedEmployeeId = load(UI_KEY, { selectedEmployeeId: null }).selectedEmployeeId || null;
-let orgManagerFilter = load(UI_KEY, { orgManagerFilter: "" }).orgManagerFilter || "";
+let uiState = load(UI_KEY, { selectedEmployeeId: null, orgManagerFilter: "" });
+let selectedEmployeeId = uiState.selectedEmployeeId || null;
+let orgManagerFilter = uiState.orgManagerFilter || "";
+
+let rules = load(RULE_KEY, {
+  mode: "WARN",        // WARN | BLOCK
+  noNorm: "INHERIT",   // INHERIT | WARN | BLOCK
+  planFull: "INHERIT"  // INHERIT | WARN | BLOCK
+});
 
 function load(key, fallback){
   try {
@@ -276,23 +335,20 @@ function load(key, fallback){
     return raw ? JSON.parse(raw) : fallback;
   } catch { return fallback; }
 }
-
 function saveAll(){
   localStorage.setItem(EMP_KEY, JSON.stringify(employees));
   localStorage.setItem(NORM_KEY, JSON.stringify(norms));
   localStorage.setItem(AUDIT_KEY, JSON.stringify(audit));
   localStorage.setItem(UI_KEY, JSON.stringify({ selectedEmployeeId, orgManagerFilter }));
+  localStorage.setItem(RULE_KEY, JSON.stringify(rules));
 }
-
 function nowISO(){ return new Date().toISOString(); }
 function id(prefix){ return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`; }
-
 function writeAudit(action, detail){
   audit.unshift({ time: nowISO(), action, detail });
   audit = audit.slice(0, 300);
   saveAll();
 }
-
 function esc(str){
   return String(str ?? "").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
 }
@@ -302,7 +358,7 @@ function setErr(id, msg){ document.getElementById(id).textContent = msg || ""; }
  *  Tabs
  * --------------------------*/
 function showTab(tab, ev){
-  ["emp","norm","career","org","audit"].forEach(t => {
+  ["emp","norm","career","org","admin","audit"].forEach(t => {
     document.getElementById(t).style.display = (t===tab) ? "block" : "none";
   });
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
@@ -311,33 +367,72 @@ function showTab(tab, ev){
 }
 
 /** ---------------------------
- *  Norm Kadro Helpers (Rule Engine)
+ *  Norm Kadro Helpers (Robust Matching + Rule Engine)
  * --------------------------*/
-function findNorm(dept, position){
-  return norms.find(n => (n.dept || "—") === (dept || "—") && n.position === position);
+function key(v){
+  return (v || "—").toString().trim().toLowerCase();
 }
-
+function findNorm(dept, position){
+  const d = key(dept);
+  const p = key(position);
+  return norms.find(n => key(n.dept) === d && key(n.position) === p);
+}
 function countFilled(dept, position){
+  const d = key(dept);
+  const p = key(position);
   return employees.filter(e =>
     e.status === "Aktif" &&
-    (e.dept || "—") === (dept || "—") &&
-    e.position === position
+    key(e.dept) === d &&
+    key(e.position) === p
   ).length;
 }
-
-function checkNormWarnings(dept, position, contextLabel){
-  // Returns { okToProceed: boolean }
+function effectiveAction(ruleValue){
+  // INHERIT ise genel mod
+  if (ruleValue === "INHERIT") return rules.mode;
+  return ruleValue;
+}
+function rulesSummaryText(){
+  const noNorm = effectiveAction(rules.noNorm);
+  const planFull = effectiveAction(rules.planFull);
+  return `Genel Mod: ${rules.mode === "WARN" ? "Uyar" : "Blokla"} | Norm Yoksa: ${noNorm === "WARN" ? "Uyar" : "Blokla"} | Plan Doluysa: ${planFull === "WARN" ? "Uyar" : "Blokla"}`;
+}
+function updateRulePills(){
+  const txt = rulesSummaryText();
+  const pill1 = document.getElementById("rulePill");
+  const pill2 = document.getElementById("rulePill2");
+  if (pill1) pill1.textContent = txt;
+  if (pill2) pill2.textContent = txt;
+  const sum = document.getElementById("ruleSummary");
+  if (sum) sum.textContent = txt;
+}
+function checkNormRule(dept, position, contextLabel){
   const n = findNorm(dept, position);
   if (!n){
-    const go = confirm(`[Norm Kadro Uyarısı] ${contextLabel}\n\n${dept} / ${position} için norm kadro satırı bulunamadı.\nDevam etmek istiyor musun?`);
-    return { okToProceed: go };
+    const action = effectiveAction(rules.noNorm);
+    const msg = `[Norm Kadro] ${contextLabel}\n\n${dept} / ${position} için norm satırı yok.`;
+    if (action === "WARN"){
+      const go = confirm(msg + `\n\nDevam etmek istiyor musun?`);
+      return { okToProceed: go, reason: "NO_NORM" };
+    } else {
+      alert(msg + `\n\nİşlem engellendi (Blokla).`);
+      return { okToProceed: false, reason: "NO_NORM" };
+    }
   }
+
   const filled = countFilled(dept, position);
   if (filled >= n.plan){
-    const go = confirm(`[Norm Kadro Uyarısı] ${contextLabel}\n\n${dept} / ${position} planı dolu görünüyor.\nPlan: ${n.plan}, Dolu: ${filled}\nDevam etmek istiyor musun?`);
-    return { okToProceed: go };
+    const action = effectiveAction(rules.planFull);
+    const msg = `[Norm Kadro] ${contextLabel}\n\n${dept} / ${position} planı dolu.\nPlan: ${n.plan}, Dolu: ${filled}`;
+    if (action === "WARN"){
+      const go = confirm(msg + `\n\nDevam etmek istiyor musun?`);
+      return { okToProceed: go, reason: "PLAN_FULL" };
+    } else {
+      alert(msg + `\n\nİşlem engellendi (Blokla).`);
+      return { okToProceed: false, reason: "PLAN_FULL" };
+    }
   }
-  return { okToProceed: true };
+
+  return { okToProceed: true, reason: "OK" };
 }
 
 /** ---------------------------
@@ -348,7 +443,6 @@ function managerNameById(managerId){
   const m = employees.find(e => e.employeeId === managerId);
   return m ? m.name : "—";
 }
-
 function renderManagerSelect(){
   const sel = document.getElementById("empManager");
   sel.innerHTML = "";
@@ -357,7 +451,6 @@ function renderManagerSelect(){
   opt0.textContent = "İlk Yönetici (opsiyonel)";
   sel.appendChild(opt0);
 
-  // sadece aktifleri yönetici listesine koyuyoruz (MVP)
   employees
     .filter(e => e.status === "Aktif")
     .forEach(e => {
@@ -390,15 +483,15 @@ function addEmployee(){
     return;
   }
 
-  // Norm Kadro kural motoru (uyarı)
-  const warn = checkNormWarnings(dept, position, "Çalışan Ekleme");
-  if (!warn.okToProceed) return;
+  // Rule Engine
+  const rule = checkNormRule(dept, position, "Çalışan Ekleme");
+  if (!rule.okToProceed) return;
 
   const emp = {
     employeeId: id("EMP"),
     name, sicil,
     dept, position,
-    managerId, // yönetici
+    managerId,
     hireDate,
     status: "Aktif",
     createdAt: nowISO(),
@@ -449,10 +542,10 @@ function goCareer(empId){
   selectedEmployeeId = empId;
   saveAll();
 
-  ["emp","norm","career","org","audit"].forEach(t => document.getElementById(t).style.display = (t==="career") ? "block" : "none");
+  ["emp","norm","career","org","admin","audit"].forEach(t => document.getElementById(t).style.display = (t==="career") ? "block" : "none");
   const tabs = document.querySelectorAll(".tab");
   tabs.forEach(t => t.classList.remove("active"));
-  tabs[2].classList.add("active"); // Kariyer
+  tabs[2].classList.add("active");
 
   initCareerDefaults();
   renderAll();
@@ -506,7 +599,6 @@ function initCareerDefaults(){
   const dd = String(d.getDate()).padStart(2,"0");
   document.getElementById("carEffDate").value = `${yyyy}-${mm}-${dd}`;
 }
-
 function onCareerEmployeeChange(){
   const v = document.getElementById("carEmpSelect").value;
   selectedEmployeeId = v || null;
@@ -514,18 +606,12 @@ function onCareerEmployeeChange(){
   renderHistory();
 }
 
-function onCareerTypeChange(){
-  // Transfer ise departman zorunlu: görsel ipucu için placeholder gibi davranacağız.
-  // (Asıl zorunluluk applyCareerMove içinde)
-  setErr("carErr","");
-}
-
 function applyCareerMove(){
   setErr("carErr","");
 
   const empId = document.getElementById("carEmpSelect").value;
   const type = document.getElementById("carType").value;
-  const newDept = document.getElementById("carNewDept").value; // optional except Transfer
+  const newDept = document.getElementById("carNewDept").value;
   const newPos = document.getElementById("carNewPosition").value.trim();
   const effDate = document.getElementById("carEffDate").value || "";
   const reason = document.getElementById("carReason").value.trim();
@@ -558,14 +644,14 @@ function applyCareerMove(){
   const toDept = newDept ? newDept : (emp.dept || "—");
   const toPos = newPos;
 
-  if (fromDept === toDept && fromPos === toPos){
+  if (key(fromDept) === key(toDept) && key(fromPos) === key(toPos)){
     setErr("carErr","Hata: Eski ve yeni aynı görünüyor. Değişiklik yapmalısın.");
     return;
   }
 
-  // Norm Kadro kural motoru: hedef pozisyon
-  const warn = checkNormWarnings(toDept, toPos, `Kariyer Hareketi (${type})`);
-  if (!warn.okToProceed) return;
+  // Rule Engine
+  const rule = checkNormRule(toDept, toPos, `Kariyer Hareketi (${type})`);
+  if (!rule.okToProceed) return;
 
   const move = {
     moveId: id("MOVE"),
@@ -641,7 +727,6 @@ function renderOrg(){
 
   const active = employees.filter(e => e.status === "Aktif");
 
-  // Top roles: managerId empty
   const tops = active.filter(e => !e.managerId);
   if (tops.length === 0){
     topBody.innerHTML = `<tr><td colspan="4" class="small">Yönetici olmayan (tepe) rol yok.</td></tr>`;
@@ -656,7 +741,6 @@ function renderOrg(){
     });
   }
 
-  // Team
   if (!orgManagerFilter){
     teamBody.innerHTML = `<tr><td colspan="4" class="small">Ekip görmek için bir yönetici seç.</td></tr>`;
     return;
@@ -678,18 +762,34 @@ function renderOrg(){
 }
 
 /** ---------------------------
+ *  Admin Rules UI
+ * --------------------------*/
+function loadRulesToUI(){
+  document.getElementById("ruleMode").value = rules.mode;
+  document.getElementById("ruleNoNorm").value = rules.noNorm;
+  document.getElementById("rulePlanFull").value = rules.planFull;
+  updateRulePills();
+}
+function saveRulesFromUI(){
+  rules.mode = document.getElementById("ruleMode").value;
+  rules.noNorm = document.getElementById("ruleNoNorm").value;
+  rules.planFull = document.getElementById("rulePlanFull").value;
+  writeAudit("Admin Ayarları Güncellendi", rulesSummaryText());
+  saveAll();
+  updateRulePills();
+}
+
+/** ---------------------------
  *  Export / Reset
  * --------------------------*/
 function exportJSON(){
-  const payload = { exportedAt: nowISO(), employees, norms, audit };
+  const payload = { exportedAt: nowISO(), employees, norms, audit, rules };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
   a.href = url;
   a.download = "cds-demo-export.json";
   a.click();
-
   URL.revokeObjectURL(url);
   writeAudit("Dışa Aktarım", "JSON export alındı");
   saveAll();
@@ -705,6 +805,7 @@ function resetDemo(){
   audit = [];
   selectedEmployeeId = null;
   orgManagerFilter = "";
+  rules = { mode:"WARN", noNorm:"INHERIT", planFull:"INHERIT" };
 
   saveAll();
   renderAll();
@@ -817,7 +918,6 @@ function renderNorm(){
 function renderCareerSelect(){
   const sel = document.getElementById("carEmpSelect");
   sel.innerHTML = "";
-
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Çalışan seç (zorunlu)";
@@ -833,15 +933,33 @@ function renderCareerSelect(){
   if (selectedEmployeeId) sel.value = selectedEmployeeId;
 }
 
+function renderOrgManagerSelect(){
+  const sel = document.getElementById("orgManagerSelect");
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Yönetici seç (opsiyonel)";
+  sel.appendChild(opt0);
+
+  employees
+    .filter(e => e.status === "Aktif")
+    .forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.employeeId;
+      opt.textContent = `${e.name} — ${e.dept}/${e.position}`;
+      sel.appendChild(opt);
+    });
+
+  sel.value = orgManagerFilter || "";
+}
+
 function renderAudit(){
   const tbody = document.getElementById("auditTable");
   tbody.innerHTML = "";
-
   if (!audit.length){
     tbody.innerHTML = `<tr><td colspan="3" class="small">Henüz audit kaydı yok.</td></tr>`;
     return;
   }
-
   for (const a of audit.slice(0, 50)){
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -862,6 +980,8 @@ function renderAll(){
   renderOrgManagerSelect();
   renderOrg();
   renderAudit();
+  loadRulesToUI();
+  updateRulePills();
   saveAll();
 }
 
