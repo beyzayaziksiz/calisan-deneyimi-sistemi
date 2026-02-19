@@ -1,277 +1,174 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Çalışan Deneyimi Sistemi - MVP</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 24px; max-width: 980px; }
-    h1 { margin-bottom: 6px; }
-    .muted { color:#666; margin-top: 0; }
-    .row { display:flex; gap:12px; flex-wrap: wrap; margin: 12px 0; }
-    input, select, button { padding:10px; font-size:14px; }
-    input { min-width: 220px; }
-    button { cursor:pointer; }
-    .card { border:1px solid #ddd; border-radius:10px; padding:14px; margin: 14px 0; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { border-bottom:1px solid #eee; padding:10px; text-align:left; }
-    th { background:#fafafa; }
-    .tag { display:inline-block; padding:3px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; color:#444; }
-    .right { text-align:right; }
-    .danger { color:#b00020; }
-    .small { font-size:12px; color:#666; }
-  </style>
+<meta charset="UTF-8">
+<title>Sunar Yanımda 2.0</title>
+<style>
+body { font-family: Arial; margin:20px; max-width:1100px; }
+h1 { margin-bottom:10px; }
+.tab { cursor:pointer; padding:10px 20px; border:1px solid #ccc; display:inline-block; margin-right:5px; }
+.active { background:#f0f0f0; }
+.section { margin-top:20px; }
+.card { border:1px solid #ddd; padding:15px; margin-top:15px; border-radius:8px; }
+input, select, button { padding:8px; margin-right:5px; margin-top:5px; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
+th, td { border-bottom:1px solid #ddd; padding:8px; text-align:left; }
+.badge { padding:4px 8px; border-radius:12px; font-size:12px; }
+.green { background:#d4edda; }
+.red { background:#f8d7da; }
+</style>
 </head>
 <body>
-  <h1>Sunar Yanımda 2.0 (MVP Demo)</h1>
-  <p class="muted">Bu demo tarayıcıda veri saklar (localStorage). Lütfen gerçek çalışan verisi girmeyin.</p>
 
-  <div class="card">
-    <h2>Çalışan Ekle</h2>
-    <div class="row">
-      <input id="empName" type="text" placeholder="Ad Soyad (zorunlu)" />
-      <input id="empPosition" type="text" placeholder="Pozisyon/Unvan (zorunlu)" />
-      <select id="empDept">
-        <option value="">Departman (seç)</option>
-        <option>İnsan & Kültür</option>
-        <option>Finans</option>
-        <option>Operasyon</option>
-        <option>Tedarik</option>
-        <option>Satış</option>
-        <option>Kalite</option>
-        <option>IT</option>
-      </select>
-      <button onclick="addEmployee()">Ekle</button>
-    </div>
-    <p class="small">Kural: Ad Soyad ve Pozisyon boş olamaz. Kayıtlar sayfa yenilense de kalır.</p>
-    <p id="error" class="danger"></p>
-  </div>
+<h1>Sunar Yanımda 2.0</h1>
 
-  <div class="card">
-    <div class="row" style="justify-content:space-between; align-items:center;">
-      <h2 style="margin:0;">Çalışan Listesi</h2>
-      <div class="row" style="margin:0;">
-        <input id="search" type="text" placeholder="Ara: ad / pozisyon / departman" oninput="render()" />
-        <button onclick="exportJSON()">JSON Dışa Aktar</button>
-        <button onclick="resetDemo()" class="danger">Demo Verisini Sıfırla</button>
-      </div>
-    </div>
+<div>
+<span class="tab active" onclick="showTab('emp')">Çalışanlar</span>
+<span class="tab" onclick="showTab('norm')">Norm Kadro</span>
+</div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Ad Soyad</th>
-          <th>Pozisyon</th>
-          <th>Departman</th>
-          <th>Durum</th>
-          <th class="right">İşlem</th>
-        </tr>
-      </thead>
-      <tbody id="employeeTable"></tbody>
-    </table>
-  </div>
+<div id="emp" class="section">
 
-  <div class="card">
-    <h2>Audit Log (Değişiklik Geçmişi)</h2>
-    <p class="small">Her ekleme/pasife alma işlemi burada kaydedilir.</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Zaman</th>
-          <th>İşlem</th>
-          <th>Detay</th>
-        </tr>
-      </thead>
-      <tbody id="auditTable"></tbody>
-    </table>
-  </div>
+<div class="card">
+<h3>Çalışan Ekle</h3>
+<input id="name" placeholder="Ad Soyad">
+<input id="sicil" placeholder="Sicil No">
+<select id="dept">
+<option>İnsan & Kültür</option>
+<option>Finans</option>
+<option>Operasyon</option>
+<option>Satış</option>
+</select>
+<input id="position" placeholder="Pozisyon">
+<button onclick="addEmployee()">Ekle</button>
+</div>
+
+<div class="card">
+<h3>Çalışan Listesi</h3>
+<table>
+<thead>
+<tr>
+<th>Ad Soyad</th>
+<th>Sicil</th>
+<th>Departman</th>
+<th>Pozisyon</th>
+<th>Durum</th>
+</tr>
+</thead>
+<tbody id="empTable"></tbody>
+</table>
+</div>
+
+</div>
+
+<div id="norm" class="section" style="display:none;">
+
+<div class="card">
+<h3>Norm Kadro Ekle</h3>
+<select id="normDept">
+<option>İnsan & Kültür</option>
+<option>Finans</option>
+<option>Operasyon</option>
+<option>Satış</option>
+</select>
+<input id="normPosition" placeholder="Pozisyon">
+<input id="normPlan" type="number" placeholder="Planlanan Adet">
+<button onclick="addNorm()">Ekle</button>
+</div>
+
+<div class="card">
+<h3>Plan vs Fiili</h3>
+<table>
+<thead>
+<tr>
+<th>Departman</th>
+<th>Pozisyon</th>
+<th>Plan</th>
+<th>Dolu</th>
+<th>Açık</th>
+</tr>
+</thead>
+<tbody id="normTable"></tbody>
+</table>
+</div>
+
+</div>
 
 <script>
-  // ---------- Storage Keys ----------
-  const EMP_KEY = "cds_employees_v1";
-  const AUDIT_KEY = "cds_audit_v1";
 
-  // ---------- State ----------
-  let employees = load(EMP_KEY, []);
-  let audit = load(AUDIT_KEY, []);
+let employees = JSON.parse(localStorage.getItem("emp")) || [];
+let norms = JSON.parse(localStorage.getItem("norm")) || [];
 
-  // ---------- Helpers ----------
-  function load(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch {
-      return fallback;
-    }
-  }
+function save() {
+localStorage.setItem("emp", JSON.stringify(employees));
+localStorage.setItem("norm", JSON.stringify(norms));
+}
 
-  function save(key, data) {
-    localStorage.setItem(key, JSON.stringify(data));
-  }
+function showTab(tab) {
+document.getElementById("emp").style.display = tab==="emp"?"block":"none";
+document.getElementById("norm").style.display = tab==="norm"?"block":"none";
 
-  function nowISO() {
-    return new Date().toISOString();
-  }
+let tabs = document.querySelectorAll(".tab");
+tabs.forEach(t=>t.classList.remove("active"));
+event.target.classList.add("active");
+}
 
-  function writeAudit(action, detail) {
-    audit.unshift({ time: nowISO(), action, detail });
-    save(AUDIT_KEY, audit);
-    renderAudit();
-  }
+function addEmployee() {
+let emp = {
+name: document.getElementById("name").value,
+sicil: document.getElementById("sicil").value,
+dept: document.getElementById("dept").value,
+position: document.getElementById("position").value,
+status: "Aktif"
+};
+employees.push(emp);
+save();
+render();
+}
 
-  function setError(msg) {
-    document.getElementById("error").textContent = msg || "";
-  }
+function addNorm() {
+let norm = {
+dept: document.getElementById("normDept").value,
+position: document.getElementById("normPosition").value,
+plan: parseInt(document.getElementById("normPlan").value)
+};
+norms.push(norm);
+save();
+render();
+}
 
-  function id() {
-    // basit benzersiz id
-    return "EMP-" + Math.random().toString(16).slice(2) + "-" + Date.now();
-  }
+function render() {
+let empTable = document.getElementById("empTable");
+empTable.innerHTML="";
+employees.forEach(e=>{
+empTable.innerHTML += `<tr>
+<td>${e.name}</td>
+<td>${e.sicil}</td>
+<td>${e.dept}</td>
+<td>${e.position}</td>
+<td><span class="badge green">${e.status}</span></td>
+</tr>`;
+});
 
-  // ---------- Actions ----------
-  function addEmployee() {
-    setError("");
-    const name = document.getElementById("empName").value.trim();
-    const position = document.getElementById("empPosition").value.trim();
-    const dept = document.getElementById("empDept").value;
+let normTable = document.getElementById("normTable");
+normTable.innerHTML="";
+norms.forEach(n=>{
+let dolu = employees.filter(e=>e.dept===n.dept && e.position===n.position).length;
+let acik = n.plan - dolu;
 
-    if (!name || !position) {
-      setError("Hata: Ad Soyad ve Pozisyon alanları zorunludur.");
-      return;
-    }
+normTable.innerHTML += `<tr>
+<td>${n.dept}</td>
+<td>${n.position}</td>
+<td>${n.plan}</td>
+<td>${dolu}</td>
+<td><span class="badge ${acik>0?'red':'green'}">${acik}</span></td>
+</tr>`;
+});
+}
 
-    const emp = {
-      employeeId: id(),
-      name,
-      position,
-      department: dept || "—",
-      status: "Aktif",
-      createdAt: nowISO()
-    };
+render();
 
-    employees.unshift(emp);
-    save(EMP_KEY, employees);
-    writeAudit("Çalışan Eklendi", `${emp.name} / ${emp.position} / ${emp.department}`);
-
-    document.getElementById("empName").value = "";
-    document.getElementById("empPosition").value = "";
-    document.getElementById("empDept").value = "";
-
-    render();
-  }
-
-  function deactivate(empId) {
-    const idx = employees.findIndex(e => e.employeeId === empId);
-    if (idx === -1) return;
-
-    // "Silme yok": pasife al
-    employees[idx].status = "Pasif";
-    employees[idx].deactivatedAt = nowISO();
-
-    save(EMP_KEY, employees);
-    writeAudit("Çalışan Pasife Alındı", `${employees[idx].name} / ${employees[idx].position}`);
-    render();
-  }
-
-  function exportJSON() {
-    const payload = {
-      exportedAt: nowISO(),
-      employees,
-      audit
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "calisan-deneyimi-demo-export.json";
-    a.click();
-
-    URL.revokeObjectURL(url);
-    writeAudit("Dışa Aktarım", "JSON export alındı");
-  }
-
-  function resetDemo() {
-    const ok = confirm("Demo verileri sıfırlansın mı? (Geri alınamaz)");
-    if (!ok) return;
-
-    employees = [];
-    audit = [];
-    save(EMP_KEY, employees);
-    save(AUDIT_KEY, audit);
-    render();
-    renderAudit();
-  }
-
-  // ---------- Rendering ----------
-  function render() {
-    const q = document.getElementById("search").value.trim().toLowerCase();
-    const tbody = document.getElementById("employeeTable");
-    tbody.innerHTML = "";
-
-    const filtered = employees.filter(e => {
-      const hay = `${e.name} ${e.position} ${e.department} ${e.status}`.toLowerCase();
-      return hay.includes(q);
-    });
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" class="small">Kayıt bulunamadı.</td></tr>`;
-      renderAudit();
-      return;
-    }
-
-    for (const e of filtered) {
-      const statusTag = e.status === "Aktif"
-        ? `<span class="tag">${e.status}</span>`
-        : `<span class="tag danger">${e.status}</span>`;
-
-      const btn = e.status === "Aktif"
-        ? `<button onclick="deactivate('${e.employeeId}')">Pasife Al</button>`
-        : `<span class="small">—</span>`;
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(e.name)}</td>
-        <td>${escapeHtml(e.position)}</td>
-        <td>${escapeHtml(e.department)}</td>
-        <td>${statusTag}</td>
-        <td class="right">${btn}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-
-    renderAudit();
-  }
-
-  function renderAudit() {
-    const tbody = document.getElementById("auditTable");
-    tbody.innerHTML = "";
-
-    if (!audit.length) {
-      tbody.innerHTML = `<tr><td colspan="3" class="small">Henüz kayıt yok.</td></tr>`;
-      return;
-    }
-
-    for (const a of audit.slice(0, 30)) { // son 30 kayıt
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${escapeHtml(a.time)}</td>
-        <td>${escapeHtml(a.action)}</td>
-        <td>${escapeHtml(a.detail)}</td>
-      `;
-      tbody.appendChild(tr);
-    }
-  }
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, s => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-    }[s]));
-  }
-
-  // initial render
-  render();
-  renderAudit();
 </script>
+
 </body>
 </html>
