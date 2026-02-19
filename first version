@@ -1,32 +1,26 @@
-index.html
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-    <title>Çalışan Deneyimi Sistemi</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Çalışan Deneyimi Sistemi - MVP</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; max-width: 980px; }
+    h1 { margin-bottom: 6px; }
+    .muted { color:#666; margin-top: 0; }
+    .row { display:flex; gap:12px; flex-wrap: wrap; margin: 12px 0; }
+    input, select, button { padding:10px; font-size:14px; }
+    input { min-width: 220px; }
+    button { cursor:pointer; }
+    .card { border:1px solid #ddd; border-radius:10px; padding:14px; margin: 14px 0; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #eee; padding:10px; text-align:left; }
+    th { background:#fafafa; }
+    .tag { display:inline-block; padding:3px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; color:#444; }
+    .right { text-align:right; }
+    .danger { color:#b00020; }
+    .small { font-size:12px; color:#666; }
+  </style>
 </head>
 <body>
-    <h1>Sunar Yanımda 2.0</h1>
-
-    <h2>Çalışan Ekle</h2>
-
-    <input type="text" id="name" placeholder="Ad Soyad">
-    <input type="text" id="position" placeholder="Pozisyon">
-    <button onclick="addEmployee()">Ekle</button>
-
-    <h3>Çalışan Listesi</h3>
-    <ul id="employeeList"></ul>
-
-<script>
-function addEmployee() {
-    var name = document.getElementById("name").value;
-    var position = document.getElementById("position").value;
-
-    var li = document.createElement("li");
-    li.textContent = name + " - " + position;
-
-    document.getElementById("employeeList").appendChild(li);
-}
-</script>
-
-</body>
-</html>
+  <h1>Sunar Yanımda 2.0 (MVP Demo
