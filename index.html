@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sunar Yanımda 2.0 - MVP</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; max-width: 1150px; }
+  body { font-family: Arial, sans-serif; margin: 20px; max-width: 1200px; }
   h1 { margin: 0 0 8px; }
   .muted { color:#666; margin: 0 0 16px; }
   .tabs { margin: 8px 0 14px; }
@@ -32,12 +32,13 @@
 <body>
 
 <h1>Sunar Yanımda 2.0 (MVP Demo)</h1>
-<p class="muted">Demo ortamı: Veriler tarayıcıda saklanır (localStorage). Lütfen gerçek çalışan verisi girmeyin.</p>
+<p class="muted">Demo: Veriler tarayıcıda saklanır (localStorage). Lütfen gerçek çalışan verisi girmeyin.</p>
 
 <div class="tabs">
   <span class="tab active" onclick="showTab('emp', event)">Çalışanlar</span>
   <span class="tab" onclick="showTab('norm', event)">Norm Kadro</span>
   <span class="tab" onclick="showTab('career', event)">Kariyer Hareketi</span>
+  <span class="tab" onclick="showTab('org', event)">Organizasyon</span>
   <span class="tab" onclick="showTab('audit', event)">Audit Log</span>
 </div>
 
@@ -59,18 +60,22 @@
         <option>IT</option>
       </select>
       <input id="empPosition" placeholder="Pozisyon (zorunlu)">
+      <select id="empManager"></select>
       <input id="empHireDate" type="date" placeholder="İşe Başlama Tarihi">
       <button onclick="addEmployee()">Ekle</button>
     </div>
     <p id="empErr" class="danger"></p>
-    <p class="small">Kural: Ad Soyad, Sicil No ve Pozisyon zorunlu. Departman seçmezsen “—” olur.</p>
+    <p class="small">
+      Zorunlu: Ad Soyad, Sicil No, Pozisyon. Yönetici seçmezsen “Yok” olur.
+      Norm kadro kural motoru: ilgili norm satırı varsa ve plan doluysa uyarı verir.
+    </p>
   </div>
 
   <div class="card">
     <div class="row" style="justify-content:space-between;">
       <h3 style="margin:0;">Çalışan Listesi</h3>
       <div class="row">
-        <input id="empSearch" placeholder="Ara: ad / sicil / dept / pozisyon" oninput="renderAll()">
+        <input id="empSearch" placeholder="Ara: ad / sicil / dept / pozisyon / yönetici" oninput="renderAll()">
         <button onclick="exportJSON()">JSON Dışa Aktar</button>
         <button onclick="resetDemo()" class="danger">Demo Verisini Sıfırla</button>
       </div>
@@ -83,19 +88,18 @@
           <th>Sicil</th>
           <th>Departman</th>
           <th>Pozisyon</th>
+          <th>Yönetici</th>
           <th>Durum</th>
           <th class="right">İşlem</th>
         </tr>
       </thead>
       <tbody id="empTable"></tbody>
     </table>
-
-    <p class="small">İpucu: “Hareket” butonu ile Kariyer Hareketi sekmesine otomatik geçebilirsin.</p>
   </div>
 
   <div class="card">
     <h3>Seçili Çalışan - Görev Geçmişi</h3>
-    <p class="small">Kariyer hareketleri burada kronolojik tutulur. (Silme yok, kayıt bazlı geçmiş)</p>
+    <p class="small">Kariyer hareketleri burada kronolojik tutulur. (Silme yok)</p>
     <div id="selectedInfo" class="small">Henüz bir çalışan seçilmedi.</div>
 
     <table>
@@ -135,7 +139,7 @@
       <button onclick="addNorm()">Ekle</button>
     </div>
     <p id="normErr" class="danger"></p>
-    <p class="small">Plan vs Fiili otomatik hesaplanır: Dolu = Çalışanlar listesinden departman+pozisyon eşleşmesi.</p>
+    <p class="small">Dolu = Aktif çalışanlardan departman+pozisyon eşleşmesi ile otomatik hesaplanır.</p>
   </div>
 
   <div class="card">
@@ -163,12 +167,15 @@
 
   <div class="card">
     <h3>Kariyer Hareketi Başlat</h3>
-    <p class="small">Terfi / Transfer / Unvan Güncelleme gibi hareketler burada yapılır. İşlem sonrası görev geçmişi kayıt altına alınır ve norm kadro otomatik güncellenir.</p>
+    <p class="small">
+      Terfi / Transfer / Unvan Güncelleme gibi hareketler burada yapılır.
+      Kural motoru: norm satırı yoksa veya plan aşılıyorsa uyarı verir.
+    </p>
 
     <div class="row">
-      <select id="carEmpSelect"></select>
+      <select id="carEmpSelect" onchange="onCareerEmployeeChange()"></select>
 
-      <select id="carType">
+      <select id="carType" onchange="onCareerTypeChange()">
         <option value="Terfi">Terfi</option>
         <option value="Transfer">Transfer</option>
         <option value="Unvan Güncelleme">Unvan Güncelleme</option>
@@ -176,7 +183,7 @@
       </select>
 
       <select id="carNewDept">
-        <option value="">Yeni Departman (seç)</option>
+        <option value="">Yeni Departman (opsiyonel)</option>
         <option>İnsan & Kültür</option>
         <option>Finans</option>
         <option>Operasyon</option>
@@ -196,19 +203,37 @@
 
     <p id="carErr" class="danger"></p>
     <p class="small">
-      Kural: Yeni Pozisyon zorunlu. Yeni Departman boş bırakılırsa mevcut departman korunur.
+      Kurallar: Yeni Pozisyon zorunlu. Transfer tipinde Yeni Departman zorunludur (MVP kuralı).
       Efektif tarih boşsa bugün alınır.
     </p>
   </div>
 
+</div>
+
+<!-- ORGANİZASYON -->
+<div id="org" class="section" style="display:none;">
+
   <div class="card">
-    <h3>Hızlı Kontrol</h3>
-    <ul class="small">
-      <li>Hareket sonrası Çalışanlar sekmesinde departman/pozisyon güncellenecek.</li>
-      <li>Norm Kadro sekmesinde ilgili satırların Dolu/Açık değerleri otomatik değişecek.</li>
-      <li>Görev geçmişinde “Eski → Yeni” kaydı görünecek.</li>
-      <li>Audit Log sekmesine kayıt düşecek.</li>
-    </ul>
+    <h3>Organizasyon Görünümü (MVP)</h3>
+    <div class="row">
+      <select id="orgManagerSelect" onchange="renderOrg()"></select>
+      <button onclick="clearOrgFilter()">Filtreyi Temizle</button>
+    </div>
+    <p class="small">
+      Yönetici seçersen direkt ekibini görürsün. “Yönetici yok” olanlar tepe roller olarak listelenir.
+    </p>
+
+    <h4>Tepe Roller (Yönetici Yok)</h4>
+    <table>
+      <thead><tr><th>Çalışan</th><th>Departman</th><th>Pozisyon</th><th>Durum</th></tr></thead>
+      <tbody id="orgTopTable"></tbody>
+    </table>
+
+    <h4>Seçili Yönetici Ekibi (Direct Reports)</h4>
+    <table>
+      <thead><tr><th>Çalışan</th><th>Departman</th><th>Pozisyon</th><th>Durum</th></tr></thead>
+      <tbody id="orgTeamTable"></tbody>
+    </table>
   </div>
 
 </div>
@@ -234,15 +259,16 @@
 /** ---------------------------
  *  Storage
  * --------------------------*/
-const EMP_KEY = "cds_emp_v2";
-const NORM_KEY = "cds_norm_v2";
-const AUDIT_KEY = "cds_audit_v2";
-const UI_KEY = "cds_ui_v2";
+const EMP_KEY = "cds_emp_v3";
+const NORM_KEY = "cds_norm_v3";
+const AUDIT_KEY = "cds_audit_v3";
+const UI_KEY = "cds_ui_v3";
 
 let employees = load(EMP_KEY, []);
 let norms = load(NORM_KEY, []);
 let audit = load(AUDIT_KEY, []);
 let selectedEmployeeId = load(UI_KEY, { selectedEmployeeId: null }).selectedEmployeeId || null;
+let orgManagerFilter = load(UI_KEY, { orgManagerFilter: "" }).orgManagerFilter || "";
 
 function load(key, fallback){
   try {
@@ -255,84 +281,141 @@ function saveAll(){
   localStorage.setItem(EMP_KEY, JSON.stringify(employees));
   localStorage.setItem(NORM_KEY, JSON.stringify(norms));
   localStorage.setItem(AUDIT_KEY, JSON.stringify(audit));
-  localStorage.setItem(UI_KEY, JSON.stringify({ selectedEmployeeId }));
+  localStorage.setItem(UI_KEY, JSON.stringify({ selectedEmployeeId, orgManagerFilter }));
 }
 
 function nowISO(){ return new Date().toISOString(); }
+function id(prefix){ return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`; }
 
 function writeAudit(action, detail){
   audit.unshift({ time: nowISO(), action, detail });
-  audit = audit.slice(0, 200);
+  audit = audit.slice(0, 300);
   saveAll();
-}
-
-function id(prefix){
-  return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`;
 }
 
 function esc(str){
   return String(str ?? "").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
 }
+function setErr(id, msg){ document.getElementById(id).textContent = msg || ""; }
 
 /** ---------------------------
  *  Tabs
  * --------------------------*/
 function showTab(tab, ev){
-  document.getElementById("emp").style.display = tab==="emp" ? "block" : "none";
-  document.getElementById("norm").style.display = tab==="norm" ? "block" : "none";
-  document.getElementById("career").style.display = tab==="career" ? "block" : "none";
-  document.getElementById("audit").style.display = tab==="audit" ? "block" : "none";
-
+  ["emp","norm","career","org","audit"].forEach(t => {
+    document.getElementById(t).style.display = (t===tab) ? "block" : "none";
+  });
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   if (ev && ev.target) ev.target.classList.add("active");
-
   renderAll();
+}
+
+/** ---------------------------
+ *  Norm Kadro Helpers (Rule Engine)
+ * --------------------------*/
+function findNorm(dept, position){
+  return norms.find(n => (n.dept || "—") === (dept || "—") && n.position === position);
+}
+
+function countFilled(dept, position){
+  return employees.filter(e =>
+    e.status === "Aktif" &&
+    (e.dept || "—") === (dept || "—") &&
+    e.position === position
+  ).length;
+}
+
+function checkNormWarnings(dept, position, contextLabel){
+  // Returns { okToProceed: boolean }
+  const n = findNorm(dept, position);
+  if (!n){
+    const go = confirm(`[Norm Kadro Uyarısı] ${contextLabel}\n\n${dept} / ${position} için norm kadro satırı bulunamadı.\nDevam etmek istiyor musun?`);
+    return { okToProceed: go };
+  }
+  const filled = countFilled(dept, position);
+  if (filled >= n.plan){
+    const go = confirm(`[Norm Kadro Uyarısı] ${contextLabel}\n\n${dept} / ${position} planı dolu görünüyor.\nPlan: ${n.plan}, Dolu: ${filled}\nDevam etmek istiyor musun?`);
+    return { okToProceed: go };
+  }
+  return { okToProceed: true };
+}
+
+/** ---------------------------
+ *  Manager helpers
+ * --------------------------*/
+function managerNameById(managerId){
+  if (!managerId) return "—";
+  const m = employees.find(e => e.employeeId === managerId);
+  return m ? m.name : "—";
+}
+
+function renderManagerSelect(){
+  const sel = document.getElementById("empManager");
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "İlk Yönetici (opsiyonel)";
+  sel.appendChild(opt0);
+
+  // sadece aktifleri yönetici listesine koyuyoruz (MVP)
+  employees
+    .filter(e => e.status === "Aktif")
+    .forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.employeeId;
+      opt.textContent = `${e.name} (Sicil: ${e.sicil})`;
+      sel.appendChild(opt);
+    });
 }
 
 /** ---------------------------
  *  Employees
  * --------------------------*/
-function setErr(id, msg){ document.getElementById(id).textContent = msg || ""; }
-
 function addEmployee(){
   setErr("empErr","");
+
   const name = document.getElementById("empName").value.trim();
   const sicil = document.getElementById("empSicil").value.trim();
   const dept = document.getElementById("empDept").value || "—";
   const position = document.getElementById("empPosition").value.trim();
+  const managerId = document.getElementById("empManager").value || "";
   const hireDate = document.getElementById("empHireDate").value || "";
 
   if (!name || !sicil || !position){
     setErr("empErr","Hata: Ad Soyad, Sicil No ve Pozisyon zorunludur.");
     return;
   }
-
-  // Sicil benzersiz olsun (MVP kuralı)
   if (employees.some(e => e.sicil === sicil)){
     setErr("empErr","Hata: Bu Sicil No zaten mevcut. Sicil No benzersiz olmalı.");
     return;
   }
 
+  // Norm Kadro kural motoru (uyarı)
+  const warn = checkNormWarnings(dept, position, "Çalışan Ekleme");
+  if (!warn.okToProceed) return;
+
   const emp = {
     employeeId: id("EMP"),
     name, sicil,
     dept, position,
+    managerId, // yönetici
     hireDate,
     status: "Aktif",
     createdAt: nowISO(),
-    history: [] // assignment history
+    history: []
   };
 
   employees.unshift(emp);
   selectedEmployeeId = emp.employeeId;
 
-  writeAudit("Çalışan Eklendi", `${emp.name} / ${emp.sicil} / ${emp.dept} / ${emp.position}`);
+  writeAudit("Çalışan Eklendi", `${emp.name} / ${emp.sicil} / ${emp.dept} / ${emp.position} | Yönetici: ${managerNameById(emp.managerId)}`);
   saveAll();
 
   document.getElementById("empName").value = "";
   document.getElementById("empSicil").value = "";
   document.getElementById("empDept").value = "";
   document.getElementById("empPosition").value = "";
+  document.getElementById("empManager").value = "";
   document.getElementById("empHireDate").value = "";
 
   renderAll();
@@ -340,8 +423,12 @@ function addEmployee(){
 
 function deactivateEmployee(empId){
   const emp = employees.find(e => e.employeeId === empId);
-  if (!emp) return;
-  if (emp.status === "Pasif") return;
+  if (!emp || emp.status === "Pasif") return;
+
+  // pasife alınan kişi birilerinin yöneticisi ise, direct report'larda yönetici boşalır (MVP yaklaşımı)
+  employees.forEach(e => {
+    if (e.managerId === empId) e.managerId = "";
+  });
 
   emp.status = "Pasif";
   emp.deactivatedAt = nowISO();
@@ -355,8 +442,20 @@ function pickEmployee(empId){
   selectedEmployeeId = empId;
   saveAll();
   renderAll();
-  // Kariyer sekmesini de hazırlamak için:
   document.getElementById("carEmpSelect").value = empId;
+}
+
+function goCareer(empId){
+  selectedEmployeeId = empId;
+  saveAll();
+
+  ["emp","norm","career","org","audit"].forEach(t => document.getElementById(t).style.display = (t==="career") ? "block" : "none");
+  const tabs = document.querySelectorAll(".tab");
+  tabs.forEach(t => t.classList.remove("active"));
+  tabs[2].classList.add("active"); // Kariyer
+
+  initCareerDefaults();
+  renderAll();
 }
 
 /** ---------------------------
@@ -375,9 +474,7 @@ function addNorm(){
     return;
   }
 
-  const norm = { normId: id("NORM"), company, dept, position, plan, createdAt: nowISO() };
-  norms.unshift(norm);
-
+  norms.unshift({ normId: id("NORM"), company, dept, position, plan, createdAt: nowISO() });
   writeAudit("Norm Kadro Satırı Eklendi", `${company} / ${dept} / ${position} / Plan:${plan}`);
   saveAll();
 
@@ -392,28 +489,17 @@ function addNorm(){
 function removeNorm(normId){
   const idx = norms.findIndex(n => n.normId === normId);
   if (idx === -1) return;
-
   const n = norms[idx];
   norms.splice(idx, 1);
-
   writeAudit("Norm Kadro Satırı Silindi (MVP)", `${n.company} / ${n.dept} / ${n.position}`);
   saveAll();
   renderAll();
-}
-
-function countFilled(dept, position){
-  return employees.filter(e =>
-    e.status === "Aktif" &&
-    (dept === "—" || e.dept === dept) &&
-    e.position === position
-  ).length;
 }
 
 /** ---------------------------
  *  Career Move
  * --------------------------*/
 function initCareerDefaults(){
-  // effective date default: today
   const d = new Date();
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth()+1).padStart(2,"0");
@@ -421,11 +507,25 @@ function initCareerDefaults(){
   document.getElementById("carEffDate").value = `${yyyy}-${mm}-${dd}`;
 }
 
+function onCareerEmployeeChange(){
+  const v = document.getElementById("carEmpSelect").value;
+  selectedEmployeeId = v || null;
+  saveAll();
+  renderHistory();
+}
+
+function onCareerTypeChange(){
+  // Transfer ise departman zorunlu: görsel ipucu için placeholder gibi davranacağız.
+  // (Asıl zorunluluk applyCareerMove içinde)
+  setErr("carErr","");
+}
+
 function applyCareerMove(){
   setErr("carErr","");
+
   const empId = document.getElementById("carEmpSelect").value;
   const type = document.getElementById("carType").value;
-  const newDept = document.getElementById("carNewDept").value; // optional
+  const newDept = document.getElementById("carNewDept").value; // optional except Transfer
   const newPos = document.getElementById("carNewPosition").value.trim();
   const effDate = document.getElementById("carEffDate").value || "";
   const reason = document.getElementById("carReason").value.trim();
@@ -436,6 +536,10 @@ function applyCareerMove(){
   }
   if (!newPos){
     setErr("carErr","Hata: Yeni Pozisyon zorunludur.");
+    return;
+  }
+  if (type === "Transfer" && !newDept){
+    setErr("carErr","Hata: Transfer tipinde Yeni Departman zorunludur.");
     return;
   }
 
@@ -449,18 +553,20 @@ function applyCareerMove(){
     return;
   }
 
-  const fromDept = emp.dept;
+  const fromDept = emp.dept || "—";
   const fromPos = emp.position;
-  const toDept = newDept ? newDept : emp.dept;
+  const toDept = newDept ? newDept : (emp.dept || "—");
   const toPos = newPos;
 
-  // Eğer hiçbir şey değişmiyorsa
   if (fromDept === toDept && fromPos === toPos){
     setErr("carErr","Hata: Eski ve yeni aynı görünüyor. Değişiklik yapmalısın.");
     return;
   }
 
-  // history record (silme yok)
+  // Norm Kadro kural motoru: hedef pozisyon
+  const warn = checkNormWarnings(toDept, toPos, `Kariyer Hareketi (${type})`);
+  if (!warn.okToProceed) return;
+
   const move = {
     moveId: id("MOVE"),
     type,
@@ -474,22 +580,101 @@ function applyCareerMove(){
   emp.history = emp.history || [];
   emp.history.unshift(move);
 
-  // update current assignment
   emp.dept = toDept;
   emp.position = toPos;
   emp.updatedAt = nowISO();
 
   selectedEmployeeId = emp.employeeId;
 
-  writeAudit("Kariyer Hareketi Uygulandı", `${emp.name} (${emp.sicil}) | ${type} | ${fromDept}/${fromPos} → ${toDept}/${toPos} | ${effDate || "tarih yok"}`);
+  writeAudit("Kariyer Hareketi Uygulandı",
+    `${emp.name} (${emp.sicil}) | ${type} | ${fromDept}/${fromPos} → ${toDept}/${toPos} | ${effDate || "tarih yok"}`
+  );
+
   saveAll();
 
-  // reset fields
   document.getElementById("carNewDept").value = "";
   document.getElementById("carNewPosition").value = "";
   document.getElementById("carReason").value = "";
 
   renderAll();
+}
+
+/** ---------------------------
+ *  Organization
+ * --------------------------*/
+function renderOrgManagerSelect(){
+  const sel = document.getElementById("orgManagerSelect");
+  sel.innerHTML = "";
+
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Yönetici seç (opsiyonel)";
+  sel.appendChild(opt0);
+
+  employees
+    .filter(e => e.status === "Aktif")
+    .forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e.employeeId;
+      opt.textContent = `${e.name} — ${e.dept}/${e.position}`;
+      sel.appendChild(opt);
+    });
+
+  sel.value = orgManagerFilter || "";
+}
+
+function clearOrgFilter(){
+  orgManagerFilter = "";
+  saveAll();
+  renderOrg();
+}
+
+function renderOrg(){
+  const sel = document.getElementById("orgManagerSelect");
+  orgManagerFilter = sel.value || "";
+  saveAll();
+
+  const topBody = document.getElementById("orgTopTable");
+  const teamBody = document.getElementById("orgTeamTable");
+  topBody.innerHTML = "";
+  teamBody.innerHTML = "";
+
+  const active = employees.filter(e => e.status === "Aktif");
+
+  // Top roles: managerId empty
+  const tops = active.filter(e => !e.managerId);
+  if (tops.length === 0){
+    topBody.innerHTML = `<tr><td colspan="4" class="small">Yönetici olmayan (tepe) rol yok.</td></tr>`;
+  } else {
+    tops.forEach(e => {
+      topBody.innerHTML += `<tr>
+        <td>${esc(e.name)}</td>
+        <td>${esc(e.dept)}</td>
+        <td>${esc(e.position)}</td>
+        <td><span class="badge green">Aktif</span></td>
+      </tr>`;
+    });
+  }
+
+  // Team
+  if (!orgManagerFilter){
+    teamBody.innerHTML = `<tr><td colspan="4" class="small">Ekip görmek için bir yönetici seç.</td></tr>`;
+    return;
+  }
+
+  const team = active.filter(e => e.managerId === orgManagerFilter);
+  if (team.length === 0){
+    teamBody.innerHTML = `<tr><td colspan="4" class="small">Bu yöneticinin direct report’u yok.</td></tr>`;
+  } else {
+    team.forEach(e => {
+      teamBody.innerHTML += `<tr>
+        <td>${esc(e.name)}</td>
+        <td>${esc(e.dept)}</td>
+        <td>${esc(e.position)}</td>
+        <td><span class="badge green">Aktif</span></td>
+      </tr>`;
+    });
+  }
 }
 
 /** ---------------------------
@@ -519,6 +704,7 @@ function resetDemo(){
   norms = [];
   audit = [];
   selectedEmployeeId = null;
+  orgManagerFilter = "";
 
   saveAll();
   renderAll();
@@ -533,12 +719,13 @@ function renderEmployees(){
   tbody.innerHTML = "";
 
   const filtered = employees.filter(e => {
-    const hay = `${e.name} ${e.sicil} ${e.dept} ${e.position} ${e.status}`.toLowerCase();
+    const mgrName = managerNameById(e.managerId);
+    const hay = `${e.name} ${e.sicil} ${e.dept} ${e.position} ${mgrName} ${e.status}`.toLowerCase();
     return hay.includes(q);
   });
 
   if (filtered.length === 0){
-    tbody.innerHTML = `<tr><td colspan="6" class="small">Kayıt bulunamadı.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="small">Kayıt bulunamadı.</td></tr>`;
     return;
   }
 
@@ -558,6 +745,7 @@ function renderEmployees(){
       <td>${esc(e.sicil)}</td>
       <td>${esc(e.dept)}</td>
       <td>${esc(e.position)}</td>
+      <td>${esc(managerNameById(e.managerId))}</td>
       <td>${statusBadge}</td>
       <td class="right">${selectBtn} ${moveBtn} ${passBtn}</td>
     `;
@@ -578,7 +766,7 @@ function renderHistory(){
     return;
   }
 
-  info.innerHTML = `<b>${esc(emp.name)}</b> (Sicil: ${esc(emp.sicil)}) — Güncel: ${esc(emp.dept)} / ${esc(emp.position)}`;
+  info.innerHTML = `<b>${esc(emp.name)}</b> (Sicil: ${esc(emp.sicil)}) — Güncel: ${esc(emp.dept)} / ${esc(emp.position)} — Yönetici: ${esc(managerNameById(emp.managerId))}`;
 
   const history = emp.history || [];
   if (history.length === 0){
@@ -609,13 +797,13 @@ function renderNorm(){
   }
 
   for (const n of norms){
-    const filled = countFilled(n.dept, n.position);
+    const filled = countFilled(n.dept || "—", n.position);
     const open = n.plan - filled;
     const openBadge = open > 0 ? `<span class="badge red">${open}</span>` : `<span class="badge green">${open}</span>`;
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${esc(n.company)}</td>
-      <td>${esc(n.dept)}</td>
+      <td>${esc(n.company || "—")}</td>
+      <td>${esc(n.dept || "—")}</td>
       <td>${esc(n.position)}</td>
       <td>${esc(n.plan)}</td>
       <td>${esc(filled)}</td>
@@ -630,29 +818,19 @@ function renderCareerSelect(){
   const sel = document.getElementById("carEmpSelect");
   sel.innerHTML = "";
 
-  if (employees.length === 0){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "Çalışan yok";
-    sel.appendChild(opt);
-    return;
-  }
-
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Çalışan seç (zorunlu)";
   sel.appendChild(opt0);
 
-  for (const e of employees){
+  employees.forEach(e => {
     const opt = document.createElement("option");
     opt.value = e.employeeId;
     opt.textContent = `${e.name} (Sicil: ${e.sicil}) — ${e.dept}/${e.position} — ${e.status}`;
     sel.appendChild(opt);
-  }
+  });
 
-  if (selectedEmployeeId){
-    sel.value = selectedEmployeeId;
-  }
+  if (selectedEmployeeId) sel.value = selectedEmployeeId;
 }
 
 function renderAudit(){
@@ -676,33 +854,26 @@ function renderAudit(){
 }
 
 function renderAll(){
+  renderManagerSelect();
   renderEmployees();
   renderHistory();
   renderNorm();
   renderCareerSelect();
+  renderOrgManagerSelect();
+  renderOrg();
   renderAudit();
   saveAll();
 }
 
-function goCareer(empId){
-  selectedEmployeeId = empId;
-  saveAll();
-  // Tab switch programmatically
-  document.getElementById("emp").style.display = "none";
-  document.getElementById("norm").style.display = "none";
-  document.getElementById("career").style.display = "block";
-  document.getElementById("audit").style.display = "none";
-
-  const tabs = document.querySelectorAll(".tab");
-  tabs.forEach(t => t.classList.remove("active"));
-  tabs[2].classList.add("active"); // Kariyer tab
-
+// init
+(function init(){
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  document.getElementById("carEffDate").value = `${yyyy}-${mm}-${dd}`;
   renderAll();
-  initCareerDefaults();
-}
-
-initCareerDefaults();
-renderAll();
+})();
 </script>
 
 </body>
