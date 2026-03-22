@@ -34,7 +34,6 @@
   .field { padding:10px; border:1px solid #eee; border-radius:10px; background:#fafafa; }
   .field-label { font-size:12px; color:#666; margin-bottom:4px; }
   .field-value { font-size:14px; font-weight:600; }
-  .empty { color:#999; font-style:italic; }
   @media (max-width: 900px) {
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
   }
@@ -301,11 +300,11 @@
 </div>
 
 <script>
-const EMP_KEY = "cds_emp_v5";
-const NORM_KEY = "cds_norm_v5";
-const AUDIT_KEY = "cds_audit_v5";
-const UI_KEY = "cds_ui_v5";
-const RULE_KEY = "cds_rules_v2";
+const EMP_KEY = "cds_emp_v6";
+const NORM_KEY = "cds_norm_v6";
+const AUDIT_KEY = "cds_audit_v6";
+const UI_KEY = "cds_ui_v6";
+const RULE_KEY = "cds_rules_v3";
 
 let employees = load(EMP_KEY, []);
 let norms = load(NORM_KEY, []);
@@ -329,8 +328,11 @@ function load(key, fallback){
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : fallback;
-  } catch { return fallback; }
+  } catch {
+    return fallback;
+  }
 }
+
 function saveAll(){
   localStorage.setItem(EMP_KEY, JSON.stringify(employees));
   localStorage.setItem(NORM_KEY, JSON.stringify(norms));
@@ -342,18 +344,33 @@ function saveAll(){
   }));
   localStorage.setItem(RULE_KEY, JSON.stringify(rules));
 }
+
 function nowISO(){ return new Date().toISOString(); }
 function id(prefix){ return `${prefix}-${Math.random().toString(16).slice(2)}-${Date.now()}`; }
+
 function writeAudit(action, detail){
   audit.unshift({ time: nowISO(), action, detail });
   audit = audit.slice(0, 300);
   saveAll();
 }
+
 function esc(str){
-  return String(str ?? "").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
+  return String(str ?? "").replace(/[&<>"']/g, s => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  }[s]));
 }
-function setErr(id, msg){ document.getElementById(id).textContent = msg || ""; }
-function key(v){ return (v || "—").toString().trim().toLowerCase(); }
+
+function setErr(id, msg){
+  document.getElementById(id).textContent = msg || "";
+}
+
+function key(v){
+  return (v || "—").toString().trim().toLowerCase();
+}
 
 function showTab(tab, ev){
   ["emp","employeeCard","norm","career","org","admin","audit"].forEach(t => {
@@ -369,6 +386,7 @@ function findNorm(dept, position){
   const p = key(position);
   return norms.find(n => key(n.dept) === d && key(n.position) === p);
 }
+
 function countFilled(dept, position){
   const d = key(dept);
   const p = key(position);
@@ -378,15 +396,18 @@ function countFilled(dept, position){
     key(e.position) === p
   ).length;
 }
+
 function effectiveAction(ruleValue){
   if (ruleValue === "INHERIT") return rules.mode;
   return ruleValue;
 }
+
 function rulesSummaryText(){
   const noNorm = effectiveAction(rules.noNorm);
   const planFull = effectiveAction(rules.planFull);
   return `Genel Mod: ${rules.mode === "WARN" ? "Uyar" : "Blokla"} | Norm Yoksa: ${noNorm === "WARN" ? "Uyar" : "Blokla"} | Plan Doluysa: ${planFull === "WARN" ? "Uyar" : "Blokla"}`;
 }
+
 function updateRulePills(){
   const txt = rulesSummaryText();
   const pill1 = document.getElementById("rulePill");
@@ -396,6 +417,7 @@ function updateRulePills(){
   const sum = document.getElementById("ruleSummary");
   if (sum) sum.textContent = txt;
 }
+
 function checkNormRule(dept, position, contextLabel){
   const n = findNorm(dept, position);
   if (!n){
@@ -422,6 +444,7 @@ function checkNormRule(dept, position, contextLabel){
       return { okToProceed: false, reason: "PLAN_FULL" };
     }
   }
+
   return { okToProceed: true, reason: "OK" };
 }
 
@@ -434,6 +457,7 @@ function managerNameById(managerId){
 function renderManagerSelect(){
   const sel = document.getElementById("empManager");
   sel.innerHTML = "";
+
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "İlk Yönetici (opsiyonel)";
@@ -460,6 +484,7 @@ function addEmployee(){
     setErr("empErr","Hata: Ad Soyad, Sicil No ve Pozisyon zorunludur.");
     return;
   }
+
   if (employees.some(e => e.sicil === sicil)){
     setErr("empErr","Hata: Bu Sicil No zaten mevcut. Sicil No benzersiz olmalı.");
     return;
@@ -583,6 +608,54 @@ function onEmployeeCardSelectChange(){
   renderEmployeeCard();
 }
 
+function addPerformanceRecord(){
+  setErr("cardErr", "");
+
+  const emp = employees.find(e => e.employeeId === employeeCardEmployeeId);
+  if (!emp){
+    setErr("cardErr", "Hata: Önce çalışan kartı açılmalı.");
+    return;
+  }
+
+  const period = document.getElementById("perfPeriod").value.trim();
+  const score = document.getElementById("perfScore").value.trim();
+  const result = document.getElementById("perfResult").value;
+  const goalSummary = document.getElementById("perfGoalSummary").value.trim();
+  const managerComment = document.getElementById("perfManagerComment").value.trim();
+
+  if (!period || !score || !result){
+    setErr("cardErr", "Hata: Dönem, puan ve sonuç zorunludur.");
+    return;
+  }
+
+  emp.performanceRecords = emp.performanceRecords || [];
+  emp.performanceRecords.unshift({
+    performanceId: id("PERF"),
+    period,
+    score,
+    result,
+    goalSummary,
+    managerComment,
+    createdAt: nowISO()
+  });
+
+  writeAudit(
+    "Performans Kaydı Eklendi",
+    `${emp.name} (${emp.sicil}) | ${period} | Puan: ${score} | Sonuç: ${result}`
+  );
+
+  saveAll();
+
+  document.getElementById("perfPeriod").value = "";
+  document.getElementById("perfScore").value = "";
+  document.getElementById("perfResult").value = "";
+  document.getElementById("perfGoalSummary").value = "";
+  document.getElementById("perfManagerComment").value = "";
+
+  renderEmployeeCard();
+  renderAudit();
+}
+
 function addNorm(){
   setErr("normErr","");
   const company = (document.getElementById("normCompany").value || "—").trim() || "—";
@@ -599,10 +672,12 @@ function addNorm(){
   norms.unshift({ normId: id("NORM"), company, dept, position, plan, createdAt: nowISO() });
   writeAudit("Norm Kadro Satırı Eklendi", `${company} / ${dept} / ${position} / Plan:${plan}`);
   saveAll();
+
   document.getElementById("normCompany").value = "";
   document.getElementById("normDept").value = "";
   document.getElementById("normPosition").value = "";
   document.getElementById("normPlan").value = "";
+
   renderAll();
 }
 
@@ -623,6 +698,7 @@ function initCareerDefaults(){
   const dd = String(d.getDate()).padStart(2,"0");
   document.getElementById("carEffDate").value = `${yyyy}-${mm}-${dd}`;
 }
+
 function onCareerEmployeeChange(){
   const v = document.getElementById("carEmpSelect").value;
   selectedEmployeeId = v || null;
@@ -708,6 +784,7 @@ function applyCareerMove(){
 function renderOrgManagerSelect(){
   const sel = document.getElementById("orgManagerSelect");
   sel.innerHTML = "";
+
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Yönetici seç (opsiyonel)";
@@ -746,12 +823,14 @@ function renderOrg(){
     topBody.innerHTML = `<tr><td colspan="4" class="small">Yönetici olmayan (tepe) rol yok.</td></tr>`;
   } else {
     tops.forEach(e => {
-      topBody.innerHTML += `<tr>
-        <td>${esc(e.name)}</td>
-        <td>${esc(e.dept)}</td>
-        <td>${esc(e.position)}</td>
-        <td><span class="badge green">Aktif</span></td>
-      </tr>`;
+      topBody.innerHTML += `
+        <tr>
+          <td>${esc(e.name)}</td>
+          <td>${esc(e.dept)}</td>
+          <td>${esc(e.position)}</td>
+          <td><span class="badge green">Aktif</span></td>
+        </tr>
+      `;
     });
   }
 
@@ -765,12 +844,14 @@ function renderOrg(){
     teamBody.innerHTML = `<tr><td colspan="4" class="small">Bu yöneticinin direct report’u yok.</td></tr>`;
   } else {
     team.forEach(e => {
-      teamBody.innerHTML += `<tr>
-        <td>${esc(e.name)}</td>
-        <td>${esc(e.dept)}</td>
-        <td>${esc(e.position)}</td>
-        <td><span class="badge green">Aktif</span></td>
-      </tr>`;
+      teamBody.innerHTML += `
+        <tr>
+          <td>${esc(e.name)}</td>
+          <td>${esc(e.dept)}</td>
+          <td>${esc(e.position)}</td>
+          <td><span class="badge green">Aktif</span></td>
+        </tr>
+      `;
     });
   }
 }
@@ -781,6 +862,7 @@ function loadRulesToUI(){
   document.getElementById("rulePlanFull").value = rules.planFull;
   updateRulePills();
 }
+
 function saveRulesFromUI(){
   rules.mode = document.getElementById("ruleMode").value;
   rules.noNorm = document.getElementById("ruleNoNorm").value;
@@ -923,10 +1005,11 @@ function renderEmployeeCard(){
         <td>${esc(p.period)}</td>
         <td>${esc(p.score)}</td>
         <td>${esc(p.result)}</td>
-        <td>${esc(p.managerComment)}</td>
+        <td>${esc(p.goalSummary || "")}</td>
+        <td>${esc(p.managerComment || "")}</td>
       </tr>
     `).join("")
-    : `<tr><td colspan="4" class="small">Henüz performans kaydı yok.</td></tr>`;
+    : `<tr><td colspan="5" class="small">Henüz performans kaydı yok.</td></tr>`;
 
   const compRows = (emp.competencies && emp.competencies.length)
     ? emp.competencies.map(c => `
@@ -1046,18 +1129,38 @@ function renderEmployeeCard(){
 
       <div class="card">
         <h4>Performans Bilgileri</h4>
+
+        <div class="row" style="margin-bottom:10px;">
+          <input id="perfPeriod" placeholder="Dönem (örn. 2026 Q1)">
+          <input id="perfScore" type="number" placeholder="Puan">
+          <select id="perfResult">
+            <option value="">Sonuç seç</option>
+            <option>Beklentinin Altında</option>
+            <option>Beklentiyi Karşılıyor</option>
+            <option>Beklentinin Üstünde</option>
+            <option>Yüksek Performans</option>
+          </select>
+        </div>
+
+        <div class="row" style="margin-bottom:10px;">
+          <input id="perfGoalSummary" placeholder="Hedef Özeti">
+          <input id="perfManagerComment" placeholder="Yönetici Yorumu">
+          <button onclick="addPerformanceRecord()">Performans Kaydı Ekle</button>
+        </div>
+
         <table>
           <thead>
             <tr>
               <th>Dönem</th>
               <th>Puan</th>
               <th>Sonuç</th>
+              <th>Hedef Özeti</th>
               <th>Yönetici Yorumu</th>
             </tr>
           </thead>
           <tbody>${perfRows}</tbody>
         </table>
-        <p class="small">Bir sonraki adımda performans kayıt girişi ekleyeceğiz.</p>
+        <p class="small">Bu çalışan için performans geçmişi burada tutulur.</p>
       </div>
     </div>
 
@@ -1082,6 +1185,7 @@ function renderEmployeeCard(){
 function renderNorm(){
   const tbody = document.getElementById("normTable");
   tbody.innerHTML = "";
+
   if (norms.length === 0){
     tbody.innerHTML = `<tr><td colspan="7" class="small">Henüz norm kadro satırı yok.</td></tr>`;
     return;
@@ -1108,6 +1212,7 @@ function renderNorm(){
 function renderCareerSelect(){
   const sel = document.getElementById("carEmpSelect");
   sel.innerHTML = "";
+
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Çalışan seç (zorunlu)";
@@ -1123,9 +1228,29 @@ function renderCareerSelect(){
   if (selectedEmployeeId) sel.value = selectedEmployeeId;
 }
 
+function renderEmployeeCardSelect(){
+  const sel = document.getElementById("cardEmployeeSelect");
+  sel.innerHTML = "";
+
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Çalışan seç";
+  sel.appendChild(opt0);
+
+  employees.forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.employeeId;
+    opt.textContent = `${e.name} (Sicil: ${e.sicil})`;
+    sel.appendChild(opt);
+  });
+
+  if (employeeCardEmployeeId) sel.value = employeeCardEmployeeId;
+}
+
 function renderOrgManagerSelect(){
   const sel = document.getElementById("orgManagerSelect");
   sel.innerHTML = "";
+
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Yönetici seç (opsiyonel)";
@@ -1191,12 +1316,19 @@ function renderOrg(){
   }
 }
 
+function clearOrgFilter(){
+  orgManagerFilter = "";
+  saveAll();
+  renderOrg();
+}
+
 function loadRulesToUI(){
   document.getElementById("ruleMode").value = rules.mode;
   document.getElementById("ruleNoNorm").value = rules.noNorm;
   document.getElementById("rulePlanFull").value = rules.planFull;
   updateRulePills();
 }
+
 function saveRulesFromUI(){
   rules.mode = document.getElementById("ruleMode").value;
   rules.noNorm = document.getElementById("ruleNoNorm").value;
@@ -1209,10 +1341,12 @@ function saveRulesFromUI(){
 function renderAudit(){
   const tbody = document.getElementById("auditTable");
   tbody.innerHTML = "";
+
   if (!audit.length){
     tbody.innerHTML = `<tr><td colspan="3" class="small">Henüz audit kaydı yok.</td></tr>`;
     return;
   }
+
   for (const a of audit.slice(0, 50)){
     tbody.innerHTML += `
       <tr>
@@ -1222,6 +1356,20 @@ function renderAudit(){
       </tr>
     `;
   }
+}
+
+function exportJSON(){
+  const payload = { exportedAt: nowISO(), employees, norms, audit, rules };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "cds-demo-export.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  writeAudit("Dışa Aktarım", "JSON export alındı");
+  saveAll();
+  renderAudit();
 }
 
 function renderAll(){
@@ -1237,6 +1385,22 @@ function renderAll(){
   loadRulesToUI();
   updateRulePills();
   saveAll();
+}
+
+function resetDemo(){
+  const ok = confirm("Demo verileri sıfırlansın mı? (Geri alınamaz)");
+  if (!ok) return;
+
+  employees = [];
+  norms = [];
+  audit = [];
+  selectedEmployeeId = null;
+  orgManagerFilter = "";
+  employeeCardEmployeeId = null;
+  rules = { mode:"WARN", noNorm:"INHERIT", planFull:"INHERIT" };
+
+  saveAll();
+  renderAll();
 }
 
 (function init(){
