@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sunar Yanımda 2.0 - MVP</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; max-width: 1200px; }
+  body { font-family: Arial, sans-serif; margin: 20px; max-width: 1250px; }
   h1 { margin: 0 0 8px; }
+  h4 { margin-bottom: 8px; }
   .muted { color:#666; margin: 0 0 16px; }
   .tabs { margin: 8px 0 14px; }
   .tab { cursor:pointer; padding:10px 16px; border:1px solid #ccc; display:inline-block; margin-right:6px; border-radius:10px; user-select:none; }
@@ -14,6 +15,8 @@
   .section { margin-top: 14px; }
   .card { border:1px solid #ddd; padding:14px; border-radius:12px; margin: 12px 0; }
   .row { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
   input, select, button, textarea { padding:9px; font-size:14px; }
   input, select { min-width: 220px; }
   textarea { min-width: 320px; min-height: 80px; }
@@ -28,6 +31,13 @@
   .small { font-size:12px; color:#666; }
   .right { text-align:right; }
   .pill { border:1px solid #ddd; padding:6px 10px; border-radius:999px; display:inline-block; font-size:12px; }
+  .field { padding:10px; border:1px solid #eee; border-radius:10px; background:#fafafa; }
+  .field-label { font-size:12px; color:#666; margin-bottom:4px; }
+  .field-value { font-size:14px; font-weight:600; }
+  .empty { color:#999; font-style:italic; }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -37,6 +47,7 @@
 
 <div class="tabs">
   <span class="tab active" onclick="showTab('emp', event)">Çalışanlar</span>
+  <span class="tab" onclick="showTab('employeeCard', event)">Çalışan Kartı</span>
   <span class="tab" onclick="showTab('norm', event)">Norm Kadro</span>
   <span class="tab" onclick="showTab('career', event)">Kariyer Hareketi</span>
   <span class="tab" onclick="showTab('org', event)">Organizasyon</span>
@@ -67,10 +78,6 @@
       <button onclick="addEmployee()">Ekle</button>
     </div>
     <p id="empErr" class="danger"></p>
-    <p class="small">
-      Zorunlu: Ad Soyad, Sicil No, Pozisyon. Yönetici seçmezsen “Yok” olur.
-      Norm kadro kural motoru: Admin Ayarları’na göre “Uyar” veya “Blokla”.
-    </p>
     <div class="row">
       <span class="pill" id="rulePill"></span>
     </div>
@@ -102,23 +109,25 @@
     </table>
   </div>
 
-  <div class="card">
-    <h3>Seçili Çalışan - Görev Geçmişi</h3>
-    <p class="small">Kariyer hareketleri burada kronolojik tutulur. (Silme yok)</p>
-    <div id="selectedInfo" class="small">Henüz bir çalışan seçilmedi.</div>
+</div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Efektif Tarih</th>
-          <th>Hareket Tipi</th>
-          <th>Eski</th>
-          <th>Yeni</th>
-          <th>Gerekçe</th>
-        </tr>
-      </thead>
-      <tbody id="historyTable"></tbody>
-    </table>
+<!-- ÇALIŞAN KARTI -->
+<div id="employeeCard" class="section" style="display:none;">
+
+  <div class="card">
+    <h3>Çalışan Kartı</h3>
+    <div class="row">
+      <select id="cardEmployeeSelect" onchange="onEmployeeCardSelectChange()"></select>
+      <input id="cardSicilSearch" placeholder="Sicil No ile ara">
+      <button onclick="findEmployeeBySicil()">Kartı Aç</button>
+      <button onclick="openSelectedEmployeeFromGlobal()">Seçili Çalışanı Aç</button>
+    </div>
+    <p id="cardErr" class="danger"></p>
+    <p class="small">Çalışan seçebilir ya da sicil numarası ile doğrudan kart açabilirsin.</p>
+  </div>
+
+  <div class="card" id="employeeCardContent">
+    <div class="small">Henüz bir çalışan seçilmedi.</div>
   </div>
 
 </div>
@@ -144,7 +153,6 @@
       <button onclick="addNorm()">Ekle</button>
     </div>
     <p id="normErr" class="danger"></p>
-    <p class="small">Dolu = Aktif çalışanlardan departman+pozisyon eşleşmesi ile otomatik hesaplanır.</p>
   </div>
 
   <div class="card">
@@ -172,10 +180,6 @@
 
   <div class="card">
     <h3>Kariyer Hareketi Başlat</h3>
-    <p class="small">
-      Terfi / Transfer / Unvan Güncelleme gibi hareketler burada yapılır.
-      Kural motoru: norm satırı yoksa veya plan aşılıyorsa Admin Ayarları’na göre “Uyar” veya “Blokla”.
-    </p>
 
     <div class="row">
       <select id="carEmpSelect" onchange="onCareerEmployeeChange()"></select>
@@ -210,10 +214,6 @@
     <div class="row">
       <span class="pill" id="rulePill2"></span>
     </div>
-    <p class="small">
-      Kurallar: Yeni Pozisyon zorunlu. Transfer tipinde Yeni Departman zorunlu (MVP).
-      Efektif tarih boşsa bugün alınır.
-    </p>
   </div>
 
 </div>
@@ -227,9 +227,6 @@
       <select id="orgManagerSelect" onchange="renderOrg()"></select>
       <button onclick="clearOrgFilter()">Filtreyi Temizle</button>
     </div>
-    <p class="small">
-      Yönetici seçersen direkt ekibini görürsün. “Yönetici yok” olanlar tepe roller olarak listelenir.
-    </p>
 
     <h4>Tepe Roller (Yönetici Yok)</h4>
     <table>
@@ -246,13 +243,10 @@
 
 </div>
 
-<!-- ADMIN AYARLARI -->
+<!-- ADMIN -->
 <div id="admin" class="section" style="display:none;">
   <div class="card">
     <h3>Admin Ayarları (Kural Motoru)</h3>
-    <p class="small">
-      Bu ayarlar “pilot vs canlı” senaryosu için: Pilot’ta “Uyar”, canlıda “Blokla” seçebilirsin.
-    </p>
 
     <div class="row">
       <label>
@@ -307,26 +301,28 @@
 </div>
 
 <script>
-/** ---------------------------
- *  Storage
- * --------------------------*/
-const EMP_KEY = "cds_emp_v4";
-const NORM_KEY = "cds_norm_v4";
-const AUDIT_KEY = "cds_audit_v4";
-const UI_KEY = "cds_ui_v4";
-const RULE_KEY = "cds_rules_v1";
+const EMP_KEY = "cds_emp_v5";
+const NORM_KEY = "cds_norm_v5";
+const AUDIT_KEY = "cds_audit_v5";
+const UI_KEY = "cds_ui_v5";
+const RULE_KEY = "cds_rules_v2";
 
 let employees = load(EMP_KEY, []);
 let norms = load(NORM_KEY, []);
 let audit = load(AUDIT_KEY, []);
-let uiState = load(UI_KEY, { selectedEmployeeId: null, orgManagerFilter: "" });
+let uiState = load(UI_KEY, {
+  selectedEmployeeId: null,
+  orgManagerFilter: "",
+  employeeCardEmployeeId: null
+});
 let selectedEmployeeId = uiState.selectedEmployeeId || null;
 let orgManagerFilter = uiState.orgManagerFilter || "";
+let employeeCardEmployeeId = uiState.employeeCardEmployeeId || null;
 
 let rules = load(RULE_KEY, {
-  mode: "WARN",        // WARN | BLOCK
-  noNorm: "INHERIT",   // INHERIT | WARN | BLOCK
-  planFull: "INHERIT"  // INHERIT | WARN | BLOCK
+  mode: "WARN",
+  noNorm: "INHERIT",
+  planFull: "INHERIT"
 });
 
 function load(key, fallback){
@@ -339,7 +335,11 @@ function saveAll(){
   localStorage.setItem(EMP_KEY, JSON.stringify(employees));
   localStorage.setItem(NORM_KEY, JSON.stringify(norms));
   localStorage.setItem(AUDIT_KEY, JSON.stringify(audit));
-  localStorage.setItem(UI_KEY, JSON.stringify({ selectedEmployeeId, orgManagerFilter }));
+  localStorage.setItem(UI_KEY, JSON.stringify({
+    selectedEmployeeId,
+    orgManagerFilter,
+    employeeCardEmployeeId
+  }));
   localStorage.setItem(RULE_KEY, JSON.stringify(rules));
 }
 function nowISO(){ return new Date().toISOString(); }
@@ -353,12 +353,10 @@ function esc(str){
   return String(str ?? "").replace(/[&<>"']/g, s => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[s]));
 }
 function setErr(id, msg){ document.getElementById(id).textContent = msg || ""; }
+function key(v){ return (v || "—").toString().trim().toLowerCase(); }
 
-/** ---------------------------
- *  Tabs
- * --------------------------*/
 function showTab(tab, ev){
-  ["emp","norm","career","org","admin","audit"].forEach(t => {
+  ["emp","employeeCard","norm","career","org","admin","audit"].forEach(t => {
     document.getElementById(t).style.display = (t===tab) ? "block" : "none";
   });
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
@@ -366,12 +364,6 @@ function showTab(tab, ev){
   renderAll();
 }
 
-/** ---------------------------
- *  Norm Kadro Helpers (Robust Matching + Rule Engine)
- * --------------------------*/
-function key(v){
-  return (v || "—").toString().trim().toLowerCase();
-}
 function findNorm(dept, position){
   const d = key(dept);
   const p = key(position);
@@ -387,7 +379,6 @@ function countFilled(dept, position){
   ).length;
 }
 function effectiveAction(ruleValue){
-  // INHERIT ise genel mod
   if (ruleValue === "INHERIT") return rules.mode;
   return ruleValue;
 }
@@ -431,18 +422,15 @@ function checkNormRule(dept, position, contextLabel){
       return { okToProceed: false, reason: "PLAN_FULL" };
     }
   }
-
   return { okToProceed: true, reason: "OK" };
 }
 
-/** ---------------------------
- *  Manager helpers
- * --------------------------*/
 function managerNameById(managerId){
   if (!managerId) return "—";
   const m = employees.find(e => e.employeeId === managerId);
   return m ? m.name : "—";
 }
+
 function renderManagerSelect(){
   const sel = document.getElementById("empManager");
   sel.innerHTML = "";
@@ -451,22 +439,16 @@ function renderManagerSelect(){
   opt0.textContent = "İlk Yönetici (opsiyonel)";
   sel.appendChild(opt0);
 
-  employees
-    .filter(e => e.status === "Aktif")
-    .forEach(e => {
-      const opt = document.createElement("option");
-      opt.value = e.employeeId;
-      opt.textContent = `${e.name} (Sicil: ${e.sicil})`;
-      sel.appendChild(opt);
-    });
+  employees.filter(e => e.status === "Aktif").forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.employeeId;
+    opt.textContent = `${e.name} (Sicil: ${e.sicil})`;
+    sel.appendChild(opt);
+  });
 }
 
-/** ---------------------------
- *  Employees
- * --------------------------*/
 function addEmployee(){
   setErr("empErr","");
-
   const name = document.getElementById("empName").value.trim();
   const sicil = document.getElementById("empSicil").value.trim();
   const dept = document.getElementById("empDept").value || "—";
@@ -483,25 +465,36 @@ function addEmployee(){
     return;
   }
 
-  // Rule Engine
   const rule = checkNormRule(dept, position, "Çalışan Ekleme");
   if (!rule.okToProceed) return;
 
   const emp = {
     employeeId: id("EMP"),
-    name, sicil,
-    dept, position,
+    name,
+    sicil,
+    dept,
+    position,
     managerId,
     hireDate,
+    tenureStartDate: hireDate || "",
+    payrollCompany: "—",
+    operatingCompany: "—",
+    businessUnit: "—",
+    division: "—",
+    upperManager: "—",
     status: "Aktif",
     createdAt: nowISO(),
-    history: []
+    history: [],
+    trainings: [],
+    performanceRecords: [],
+    competencies: []
   };
 
   employees.unshift(emp);
   selectedEmployeeId = emp.employeeId;
+  employeeCardEmployeeId = emp.employeeId;
 
-  writeAudit("Çalışan Eklendi", `${emp.name} / ${emp.sicil} / ${emp.dept} / ${emp.position} | Yönetici: ${managerNameById(emp.managerId)}`);
+  writeAudit("Çalışan Eklendi", `${emp.name} / ${emp.sicil} / ${emp.dept} / ${emp.position}`);
   saveAll();
 
   document.getElementById("empName").value = "";
@@ -518,7 +511,6 @@ function deactivateEmployee(empId){
   const emp = employees.find(e => e.employeeId === empId);
   if (!emp || emp.status === "Pasif") return;
 
-  // pasife alınan kişi birilerinin yöneticisi ise, direct report'larda yönetici boşalır (MVP yaklaşımı)
   employees.forEach(e => {
     if (e.managerId === empId) e.managerId = "";
   });
@@ -533,27 +525,64 @@ function deactivateEmployee(empId){
 
 function pickEmployee(empId){
   selectedEmployeeId = empId;
+  employeeCardEmployeeId = empId;
   saveAll();
   renderAll();
   document.getElementById("carEmpSelect").value = empId;
 }
 
-function goCareer(empId){
+function openEmployeeCard(empId){
+  employeeCardEmployeeId = empId;
   selectedEmployeeId = empId;
   saveAll();
 
-  ["emp","norm","career","org","admin","audit"].forEach(t => document.getElementById(t).style.display = (t==="career") ? "block" : "none");
+  ["emp","employeeCard","norm","career","org","admin","audit"].forEach(t => {
+    document.getElementById(t).style.display = (t==="employeeCard") ? "block" : "none";
+  });
   const tabs = document.querySelectorAll(".tab");
   tabs.forEach(t => t.classList.remove("active"));
-  tabs[2].classList.add("active");
+  tabs[1].classList.add("active");
 
-  initCareerDefaults();
   renderAll();
 }
 
-/** ---------------------------
- *  Norm Kadro
- * --------------------------*/
+function openSelectedEmployeeFromGlobal(){
+  setErr("cardErr","");
+  if (!selectedEmployeeId){
+    setErr("cardErr","Hata: Önce bir çalışan seçmelisin.");
+    return;
+  }
+  employeeCardEmployeeId = selectedEmployeeId;
+  saveAll();
+  renderEmployeeCard();
+}
+
+function findEmployeeBySicil(){
+  setErr("cardErr","");
+  const sicil = document.getElementById("cardSicilSearch").value.trim();
+  if (!sicil){
+    setErr("cardErr","Hata: Sicil No girmelisin.");
+    return;
+  }
+  const emp = employees.find(e => e.sicil === sicil);
+  if (!emp){
+    setErr("cardErr","Hata: Bu sicil numarası ile çalışan bulunamadı.");
+    return;
+  }
+  employeeCardEmployeeId = emp.employeeId;
+  selectedEmployeeId = emp.employeeId;
+  saveAll();
+  renderAll();
+}
+
+function onEmployeeCardSelectChange(){
+  const v = document.getElementById("cardEmployeeSelect").value;
+  employeeCardEmployeeId = v || null;
+  selectedEmployeeId = v || selectedEmployeeId;
+  saveAll();
+  renderEmployeeCard();
+}
+
 function addNorm(){
   setErr("normErr","");
   const company = (document.getElementById("normCompany").value || "—").trim() || "—";
@@ -570,12 +599,10 @@ function addNorm(){
   norms.unshift({ normId: id("NORM"), company, dept, position, plan, createdAt: nowISO() });
   writeAudit("Norm Kadro Satırı Eklendi", `${company} / ${dept} / ${position} / Plan:${plan}`);
   saveAll();
-
   document.getElementById("normCompany").value = "";
   document.getElementById("normDept").value = "";
   document.getElementById("normPosition").value = "";
   document.getElementById("normPlan").value = "";
-
   renderAll();
 }
 
@@ -589,9 +616,6 @@ function removeNorm(normId){
   renderAll();
 }
 
-/** ---------------------------
- *  Career Move
- * --------------------------*/
 function initCareerDefaults(){
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -603,12 +627,10 @@ function onCareerEmployeeChange(){
   const v = document.getElementById("carEmpSelect").value;
   selectedEmployeeId = v || null;
   saveAll();
-  renderHistory();
 }
 
 function applyCareerMove(){
   setErr("carErr","");
-
   const empId = document.getElementById("carEmpSelect").value;
   const type = document.getElementById("carType").value;
   const newDept = document.getElementById("carNewDept").value;
@@ -635,7 +657,7 @@ function applyCareerMove(){
     return;
   }
   if (emp.status !== "Aktif"){
-    setErr("carErr","Hata: Pasif çalışana kariyer hareketi uygulanamaz (MVP kuralı).");
+    setErr("carErr","Hata: Pasif çalışana kariyer hareketi uygulanamaz.");
     return;
   }
 
@@ -645,11 +667,10 @@ function applyCareerMove(){
   const toPos = newPos;
 
   if (key(fromDept) === key(toDept) && key(fromPos) === key(toPos)){
-    setErr("carErr","Hata: Eski ve yeni aynı görünüyor. Değişiklik yapmalısın.");
+    setErr("carErr","Hata: Eski ve yeni aynı görünüyor.");
     return;
   }
 
-  // Rule Engine
   const rule = checkNormRule(toDept, toPos, `Kariyer Hareketi (${type})`);
   if (!rule.okToProceed) return;
 
@@ -657,25 +678,24 @@ function applyCareerMove(){
     moveId: id("MOVE"),
     type,
     effectiveDate: effDate || "",
-    fromDept, fromPos,
-    toDept, toPos,
+    fromDept,
+    fromPos,
+    toDept,
+    toPos,
     reason,
     createdAt: nowISO()
   };
 
   emp.history = emp.history || [];
   emp.history.unshift(move);
-
   emp.dept = toDept;
   emp.position = toPos;
   emp.updatedAt = nowISO();
 
   selectedEmployeeId = emp.employeeId;
+  employeeCardEmployeeId = emp.employeeId;
 
-  writeAudit("Kariyer Hareketi Uygulandı",
-    `${emp.name} (${emp.sicil}) | ${type} | ${fromDept}/${fromPos} → ${toDept}/${toPos} | ${effDate || "tarih yok"}`
-  );
-
+  writeAudit("Kariyer Hareketi Uygulandı", `${emp.name} (${emp.sicil}) | ${type} | ${fromDept}/${fromPos} → ${toDept}/${toPos}`);
   saveAll();
 
   document.getElementById("carNewDept").value = "";
@@ -685,26 +705,20 @@ function applyCareerMove(){
   renderAll();
 }
 
-/** ---------------------------
- *  Organization
- * --------------------------*/
 function renderOrgManagerSelect(){
   const sel = document.getElementById("orgManagerSelect");
   sel.innerHTML = "";
-
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Yönetici seç (opsiyonel)";
   sel.appendChild(opt0);
 
-  employees
-    .filter(e => e.status === "Aktif")
-    .forEach(e => {
-      const opt = document.createElement("option");
-      opt.value = e.employeeId;
-      opt.textContent = `${e.name} — ${e.dept}/${e.position}`;
-      sel.appendChild(opt);
-    });
+  employees.filter(e => e.status === "Aktif").forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.employeeId;
+    opt.textContent = `${e.name} — ${e.dept}/${e.position}`;
+    sel.appendChild(opt);
+  });
 
   sel.value = orgManagerFilter || "";
 }
@@ -726,8 +740,8 @@ function renderOrg(){
   teamBody.innerHTML = "";
 
   const active = employees.filter(e => e.status === "Aktif");
-
   const tops = active.filter(e => !e.managerId);
+
   if (tops.length === 0){
     topBody.innerHTML = `<tr><td colspan="4" class="small">Yönetici olmayan (tepe) rol yok.</td></tr>`;
   } else {
@@ -761,9 +775,6 @@ function renderOrg(){
   }
 }
 
-/** ---------------------------
- *  Admin Rules UI
- * --------------------------*/
 function loadRulesToUI(){
   document.getElementById("ruleMode").value = rules.mode;
   document.getElementById("ruleNoNorm").value = rules.noNorm;
@@ -779,9 +790,6 @@ function saveRulesFromUI(){
   updateRulePills();
 }
 
-/** ---------------------------
- *  Export / Reset
- * --------------------------*/
 function exportJSON(){
   const payload = { exportedAt: nowISO(), employees, norms, audit, rules };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -805,15 +813,13 @@ function resetDemo(){
   audit = [];
   selectedEmployeeId = null;
   orgManagerFilter = "";
+  employeeCardEmployeeId = null;
   rules = { mode:"WARN", noNorm:"INHERIT", planFull:"INHERIT" };
 
   saveAll();
   renderAll();
 }
 
-/** ---------------------------
- *  Rendering
- * --------------------------*/
 function renderEmployees(){
   const q = (document.getElementById("empSearch").value || "").trim().toLowerCase();
   const tbody = document.getElementById("empTable");
@@ -837,6 +843,7 @@ function renderEmployees(){
 
     const isSelected = (e.employeeId === selectedEmployeeId);
     const selectBtn = `<button onclick="pickEmployee('${e.employeeId}')">${isSelected ? "Seçili" : "Seç"}</button>`;
+    const cardBtn = `<button onclick="openEmployeeCard('${e.employeeId}')">Kart</button>`;
     const moveBtn = `<button onclick="goCareer('${e.employeeId}')">Hareket</button>`;
     const passBtn = e.status === "Aktif" ? `<button onclick="deactivateEmployee('${e.employeeId}')">Pasife Al</button>` : `<span class="small">—</span>`;
 
@@ -848,50 +855,233 @@ function renderEmployees(){
       <td>${esc(e.position)}</td>
       <td>${esc(managerNameById(e.managerId))}</td>
       <td>${statusBadge}</td>
-      <td class="right">${selectBtn} ${moveBtn} ${passBtn}</td>
+      <td class="right">${selectBtn} ${cardBtn} ${moveBtn} ${passBtn}</td>
     `;
     tbody.appendChild(tr);
   }
 }
 
-function renderHistory(){
-  const info = document.getElementById("selectedInfo");
-  const tbody = document.getElementById("historyTable");
-  tbody.innerHTML = "";
+function renderEmployeeCardSelect(){
+  const sel = document.getElementById("cardEmployeeSelect");
+  sel.innerHTML = "";
 
-  const emp = employees.find(e => e.employeeId === selectedEmployeeId);
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Çalışan seç";
+  sel.appendChild(opt0);
+
+  employees.forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.employeeId;
+    opt.textContent = `${e.name} (Sicil: ${e.sicil})`;
+    sel.appendChild(opt);
+  });
+
+  if (employeeCardEmployeeId) sel.value = employeeCardEmployeeId;
+}
+
+function renderEmployeeCard(){
+  const box = document.getElementById("employeeCardContent");
+  const emp = employees.find(e => e.employeeId === employeeCardEmployeeId);
 
   if (!emp){
-    info.textContent = "Henüz bir çalışan seçilmedi.";
-    tbody.innerHTML = `<tr><td colspan="5" class="small">Görev geçmişi için çalışan seçmelisin.</td></tr>`;
+    box.innerHTML = `<div class="small">Henüz bir çalışan seçilmedi.</div>`;
     return;
   }
 
-  info.innerHTML = `<b>${esc(emp.name)}</b> (Sicil: ${esc(emp.sicil)}) — Güncel: ${esc(emp.dept)} / ${esc(emp.position)} — Yönetici: ${esc(managerNameById(emp.managerId))}`;
+  const statusBadge = emp.status === "Aktif"
+    ? `<span class="badge green">Aktif</span>`
+    : `<span class="badge red">Pasif</span>`;
 
-  const history = emp.history || [];
-  if (history.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5" class="small">Bu çalışan için henüz kariyer hareketi yok.</td></tr>`;
-    return;
-  }
+  const historyRows = (emp.history && emp.history.length)
+    ? emp.history.map(h => `
+      <tr>
+        <td>${esc(h.effectiveDate || "")}</td>
+        <td>${esc(h.type)}</td>
+        <td>${esc(h.fromDept)} / ${esc(h.fromPos)}</td>
+        <td>${esc(h.toDept)} / ${esc(h.toPos)}</td>
+        <td>${esc(h.reason || "")}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="5" class="small">Henüz kariyer hareketi kaydı yok.</td></tr>`;
 
-  for (const h of history){
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(h.effectiveDate || "")}</td>
-      <td>${esc(h.type)}</td>
-      <td>${esc(h.fromDept)} / ${esc(h.fromPos)}</td>
-      <td>${esc(h.toDept)} / ${esc(h.toPos)}</td>
-      <td>${esc(h.reason || "")}</td>
-    `;
-    tbody.appendChild(tr);
-  }
+  const trainingRows = (emp.trainings && emp.trainings.length)
+    ? emp.trainings.map(t => `
+      <tr>
+        <td>${esc(t.name)}</td>
+        <td>${esc(t.date)}</td>
+        <td>${esc(t.hours)}</td>
+        <td>${esc(t.type)}</td>
+        <td>${esc(t.certificate)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="5" class="small">Henüz eğitim kaydı yok.</td></tr>`;
+
+  const perfRows = (emp.performanceRecords && emp.performanceRecords.length)
+    ? emp.performanceRecords.map(p => `
+      <tr>
+        <td>${esc(p.period)}</td>
+        <td>${esc(p.score)}</td>
+        <td>${esc(p.result)}</td>
+        <td>${esc(p.managerComment)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="4" class="small">Henüz performans kaydı yok.</td></tr>`;
+
+  const compRows = (emp.competencies && emp.competencies.length)
+    ? emp.competencies.map(c => `
+      <tr>
+        <td>${esc(c.name)}</td>
+        <td>${esc(c.level)}</td>
+        <td>${esc(c.date)}</td>
+        <td>${esc(c.note)}</td>
+      </tr>
+    `).join("")
+    : `<tr><td colspan="4" class="small">Henüz yetkinlik kaydı yok.</td></tr>`;
+
+  box.innerHTML = `
+    <div class="row" style="justify-content:space-between; align-items:center;">
+      <div>
+        <h3 style="margin:0;">${esc(emp.name)} - Çalışan Kartı</h3>
+        <p class="small" style="margin-top:6px;">Sicil: ${esc(emp.sicil)} | Durum: ${statusBadge}</p>
+      </div>
+      <div class="row">
+        <button onclick="goCareer('${emp.employeeId}')">Kariyer Hareketi Aç</button>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="field">
+        <div class="field-label">Ad Soyad</div>
+        <div class="field-value">${esc(emp.name)}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Sicil No</div>
+        <div class="field-value">${esc(emp.sicil)}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Durum</div>
+        <div class="field-value">${emp.status}</div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:14px;">
+      <div class="field">
+        <div class="field-label">İşe Giriş Tarihi</div>
+        <div class="field-value">${esc(emp.hireDate || "—")}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Kıdem Başlangıç Tarihi</div>
+        <div class="field-value">${esc(emp.tenureStartDate || "—")}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">İlk Yönetici</div>
+        <div class="field-value">${esc(managerNameById(emp.managerId))}</div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:14px;">
+      <div class="field">
+        <div class="field-label">Departman</div>
+        <div class="field-value">${esc(emp.dept || "—")}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Pozisyon</div>
+        <div class="field-value">${esc(emp.position || "—")}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Organizasyon</div>
+        <div class="field-value">${esc(emp.businessUnit || "—")} / ${esc(emp.division || "—")}</div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:14px;">
+      <div class="field">
+        <div class="field-label">Bordro Şirketi</div>
+        <div class="field-value">${esc(emp.payrollCompany || "—")}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Faaliyet Şirketi</div>
+        <div class="field-value">${esc(emp.operatingCompany || "—")}</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Üst Amir</div>
+        <div class="field-value">${esc(emp.upperManager || "—")}</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h4>Kariyer Geçmişi</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Efektif Tarih</th>
+            <th>Hareket Tipi</th>
+            <th>Eski</th>
+            <th>Yeni</th>
+            <th>Gerekçe</th>
+          </tr>
+        </thead>
+        <tbody>${historyRows}</tbody>
+      </table>
+    </div>
+
+    <div class="grid-2" style="margin-top:8px;">
+      <div class="card">
+        <h4>Eğitim Bilgileri</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Eğitim</th>
+              <th>Tarih</th>
+              <th>Saat</th>
+              <th>Tür</th>
+              <th>Sertifika</th>
+            </tr>
+          </thead>
+          <tbody>${trainingRows}</tbody>
+        </table>
+        <p class="small">Bir sonraki adımda eğitim kayıt girişi ekleyeceğiz.</p>
+      </div>
+
+      <div class="card">
+        <h4>Performans Bilgileri</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Dönem</th>
+              <th>Puan</th>
+              <th>Sonuç</th>
+              <th>Yönetici Yorumu</th>
+            </tr>
+          </thead>
+          <tbody>${perfRows}</tbody>
+        </table>
+        <p class="small">Bir sonraki adımda performans kayıt girişi ekleyeceğiz.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <h4>Yetkinlik Bilgileri</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Yetkinlik</th>
+            <th>Seviye</th>
+            <th>Değerlendirme Tarihi</th>
+            <th>Not</th>
+          </tr>
+        </thead>
+        <tbody>${compRows}</tbody>
+      </table>
+      <p class="small">Bir sonraki adımda yetkinlik kayıt girişi ekleyeceğiz.</p>
+    </div>
+  `;
 }
 
 function renderNorm(){
   const tbody = document.getElementById("normTable");
   tbody.innerHTML = "";
-
   if (norms.length === 0){
     tbody.innerHTML = `<tr><td colspan="7" class="small">Henüz norm kadro satırı yok.</td></tr>`;
     return;
@@ -901,17 +1091,17 @@ function renderNorm(){
     const filled = countFilled(n.dept || "—", n.position);
     const open = n.plan - filled;
     const openBadge = open > 0 ? `<span class="badge red">${open}</span>` : `<span class="badge green">${open}</span>`;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(n.company || "—")}</td>
-      <td>${esc(n.dept || "—")}</td>
-      <td>${esc(n.position)}</td>
-      <td>${esc(n.plan)}</td>
-      <td>${esc(filled)}</td>
-      <td>${openBadge}</td>
-      <td class="right"><button onclick="removeNorm('${n.normId}')">Kaldır</button></td>
+    tbody.innerHTML += `
+      <tr>
+        <td>${esc(n.company || "—")}</td>
+        <td>${esc(n.dept || "—")}</td>
+        <td>${esc(n.position)}</td>
+        <td>${esc(n.plan)}</td>
+        <td>${esc(filled)}</td>
+        <td>${openBadge}</td>
+        <td class="right"><button onclick="removeNorm('${n.normId}')">Kaldır</button></td>
+      </tr>
     `;
-    tbody.appendChild(tr);
   }
 }
 
@@ -941,16 +1131,79 @@ function renderOrgManagerSelect(){
   opt0.textContent = "Yönetici seç (opsiyonel)";
   sel.appendChild(opt0);
 
-  employees
-    .filter(e => e.status === "Aktif")
-    .forEach(e => {
-      const opt = document.createElement("option");
-      opt.value = e.employeeId;
-      opt.textContent = `${e.name} — ${e.dept}/${e.position}`;
-      sel.appendChild(opt);
-    });
+  employees.filter(e => e.status === "Aktif").forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.employeeId;
+    opt.textContent = `${e.name} — ${e.dept}/${e.position}`;
+    sel.appendChild(opt);
+  });
 
   sel.value = orgManagerFilter || "";
+}
+
+function renderOrg(){
+  const sel = document.getElementById("orgManagerSelect");
+  orgManagerFilter = sel.value || "";
+  saveAll();
+
+  const topBody = document.getElementById("orgTopTable");
+  const teamBody = document.getElementById("orgTeamTable");
+  topBody.innerHTML = "";
+  teamBody.innerHTML = "";
+
+  const active = employees.filter(e => e.status === "Aktif");
+  const tops = active.filter(e => !e.managerId);
+
+  if (tops.length === 0){
+    topBody.innerHTML = `<tr><td colspan="4" class="small">Yönetici olmayan (tepe) rol yok.</td></tr>`;
+  } else {
+    tops.forEach(e => {
+      topBody.innerHTML += `
+        <tr>
+          <td>${esc(e.name)}</td>
+          <td>${esc(e.dept)}</td>
+          <td>${esc(e.position)}</td>
+          <td><span class="badge green">Aktif</span></td>
+        </tr>
+      `;
+    });
+  }
+
+  if (!orgManagerFilter){
+    teamBody.innerHTML = `<tr><td colspan="4" class="small">Ekip görmek için bir yönetici seç.</td></tr>`;
+    return;
+  }
+
+  const team = active.filter(e => e.managerId === orgManagerFilter);
+  if (team.length === 0){
+    teamBody.innerHTML = `<tr><td colspan="4" class="small">Bu yöneticinin direct report’u yok.</td></tr>`;
+  } else {
+    team.forEach(e => {
+      teamBody.innerHTML += `
+        <tr>
+          <td>${esc(e.name)}</td>
+          <td>${esc(e.dept)}</td>
+          <td>${esc(e.position)}</td>
+          <td><span class="badge green">Aktif</span></td>
+        </tr>
+      `;
+    });
+  }
+}
+
+function loadRulesToUI(){
+  document.getElementById("ruleMode").value = rules.mode;
+  document.getElementById("ruleNoNorm").value = rules.noNorm;
+  document.getElementById("rulePlanFull").value = rules.planFull;
+  updateRulePills();
+}
+function saveRulesFromUI(){
+  rules.mode = document.getElementById("ruleMode").value;
+  rules.noNorm = document.getElementById("ruleNoNorm").value;
+  rules.planFull = document.getElementById("rulePlanFull").value;
+  writeAudit("Admin Ayarları Güncellendi", rulesSummaryText());
+  saveAll();
+  updateRulePills();
 }
 
 function renderAudit(){
@@ -961,20 +1214,21 @@ function renderAudit(){
     return;
   }
   for (const a of audit.slice(0, 50)){
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${esc(a.time)}</td>
-      <td>${esc(a.action)}</td>
-      <td>${esc(a.detail)}</td>
+    tbody.innerHTML += `
+      <tr>
+        <td>${esc(a.time)}</td>
+        <td>${esc(a.action)}</td>
+        <td>${esc(a.detail)}</td>
+      </tr>
     `;
-    tbody.appendChild(tr);
   }
 }
 
 function renderAll(){
   renderManagerSelect();
   renderEmployees();
-  renderHistory();
+  renderEmployeeCardSelect();
+  renderEmployeeCard();
   renderNorm();
   renderCareerSelect();
   renderOrgManagerSelect();
@@ -985,7 +1239,6 @@ function renderAll(){
   saveAll();
 }
 
-// init
 (function init(){
   const d = new Date();
   const yyyy = d.getFullYear();
